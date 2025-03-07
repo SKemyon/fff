@@ -1,0 +1,16 @@
+#pragma once
+#include <cassert>
+#include <stdexcept>
+void runAllInsert();
+void testInsertAtBeginning();
+void testInsertAtEnd();
+void testInsertInMiddle();
+void testInsertOutOfRange();
+void testInsertEmptyString();
+void testInsertAtPositionEqualToLength();
+void testInsertNulptr();
+void testInsertNulptrSTR();
+void testInsertAtBeginningSTR();
+void testInsertAtEndSTR();
+void testInsertOutOfRangeSTR();
+void testInsertAtPositionEqualToLengthSTR();

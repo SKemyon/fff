@@ -1,0 +1,10 @@
+#pragma once
+void AllOperators();
+void testOperatorSquareBrackets();
+void testBack();
+void testFront();
+void testOperatorPlusEqualString();
+void testOperatorPlusEqualCStr();
+void testOperatorPlusEqualChar();
+void testAssignmentOperator();
+void testData();

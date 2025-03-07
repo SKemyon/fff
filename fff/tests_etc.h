@@ -1,0 +1,12 @@
+#pragma once
+void runAllTests();
+void testErase();
+void testReplaceCStr();
+void testReplaceString();
+void testReplaceChar();
+void testSwap();
+void testFindString();
+void testFindCStr();
+void testFindChar();
+void testSubstr();
+void runAllTests();

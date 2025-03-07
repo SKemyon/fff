@@ -128,6 +128,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="fff.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="tests_cnstr.cpp" />
+    <ClCompile Include="tests_copy_cleat_reserve.cpp" />
+    <ClCompile Include="tests_etc.cpp" />
+    <ClCompile Include="tests_insert.cpp" />
+    <ClCompile Include="tests_operators.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="fff.h" />
+    <ClInclude Include="tests_cnstr.h" />
+    <ClInclude Include="tests_copy_cleat_reserve.h" />
+    <ClInclude Include="tests_etc.h" />
+    <ClInclude Include="tests_insert.h" />
+    <ClInclude Include="tests_operator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
