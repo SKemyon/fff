@@ -18,6 +18,7 @@ String::StringData::StringData(size_t n, char c) : refCount(1), strLenght(n), ca
     std::memset(data, c, n);
     data[n] = '\0';
 }
+
 String::StringData::~StringData() {
     delete[] data;
 }
@@ -315,10 +316,10 @@ String& String::erase(size_t pos, size_t len) {
         reserve(pos);
         return *this;
     }
-    String* box = new String(*this, pos + len, -1);
+    String box = String(*this, pos + len, -1);
     reserve(pos);
-    *this += *box;
-    delete box;
+    *this += box;
+  
     return *this;
 }
 
@@ -335,9 +336,8 @@ String& String::replace(size_t pos, size_t len, const String& str) {
 }
 
 String& String::replace(size_t pos, size_t len, size_t n, char c) {
-    String* Str = new String(n, c);
-    replace(pos, len, *Str);
-    delete Str;
+    String Str = String(n, c);
+    replace(pos, len, Str);
     return *this;
 }
 
@@ -348,38 +348,42 @@ void String::swap(String& str) {
     delete box;
 }
 
-size_t String::find(const String& str, size_t pos) const {
-    std::string string = data();
-    std::string substring = str.data();
-    std::size_t found = string.find(substring, pos);
-    if (found == std::string::npos) {
-        return npos;
+size_t String::find(char c, size_t pos) const {
+    if (pos >= size()) {
+        npos;
     }
-    return found;
+    for (size_t i = pos; i < size(); ++i) {
+        if (data()[i] == c) {
+            return i;
+        }
+    }
+    return npos;
 }
+
 
 size_t String::find(const char* str, size_t pos) const {
-    std::string string = data();
+    if (pos >= size()) {
+        npos; 
+    }
     std::string substring = str;
-    std::size_t found = string.find(substring, pos);
-    if (found == std::string::npos) {
-        return npos;
-    }
-    return found;
-}
-
-size_t String::find(char c, size_t pos) {
+    size_t sub_len = substring.size();
+    size_t data_len = size();
     std::string string = data();
-    char substring = c;
-    std::size_t found = string.find(substring, pos);
-    if (found == std::string::npos) {
-        return npos;
+    for (size_t i = pos; i <= data_len - sub_len; ++i) {
+        if (string.compare(i, sub_len, substring) == 0) {
+            return i; 
+        }
     }
-
-    return found;
+    return npos;
 }
 
-String* String::substr(size_t pos, size_t len) {
+
+
+size_t String::find(const String& str, size_t pos) const {
+    return find(str.data(), pos);
+}
+
+String* String::substr(size_t pos, size_t len) const{
     std::string str = data();
     std::string subStr = str.substr(pos, len);
     char* substring = new char[len + 1];
@@ -388,7 +392,6 @@ String* String::substr(size_t pos, size_t len) {
     String* return_String = new String(substring);
     delete[] substring;
     return return_String;
-
 }
 
 String::~String() {

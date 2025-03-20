@@ -104,6 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Users\kachu\googletest\googletest\include;C:\Users\kachu\googletest\googletest;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,6 +128,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\..\googletest\googletest\src\gtest-all.cc" />
+    <ClCompile Include="..\..\..\..\googletest\googletest\src\gtest_main.cc" />
     <ClCompile Include="fff.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="tests_cnstr.cpp" />

@@ -57,7 +57,7 @@ public:
     void swap(String& str);
     size_t find(const String& str, size_t pos = 0) const;
     size_t find(const char* str, size_t pos = 0) const;
-    size_t find(char c, size_t pos = 0);
-    String* substr(size_t pos = 0, size_t len = npos);
+    size_t find(char c, size_t pos = 0) const;
+    String* substr (size_t pos = 0, size_t len = npos) const;
     ~String();
 };

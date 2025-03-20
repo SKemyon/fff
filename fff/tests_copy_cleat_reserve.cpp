@@ -3,6 +3,114 @@
 #include <stdexcept>
 #include "fff.h"
 #include "tests_copy_cleat_reserve.h"
+#include <gtest/gtest.h>
+
+TEST(StringTest, CopyConstructor) {
+    String str1("Hello, World!");
+    String str2(str1);
+
+    EXPECT_EQ(str2.size(), str1.size());
+    EXPECT_STREQ(str2.data(), str1.data());
+    EXPECT_EQ(str1.countRef(), 2);
+}
+
+TEST(StringTest, CopyConstructorWithEmptyString) {
+    String str1;
+    String str2(str1);
+
+    EXPECT_EQ(str2.size(), 0);
+    EXPECT_EQ(str1.countRef(), 2);
+}
+
+TEST(StringTest, SubstringConstructor) {
+    String str1("Hello, World!");
+    String str2(str1, 7, 5);
+
+    EXPECT_EQ(str2.size(), 5);
+    EXPECT_STREQ(str2.data(), "World");
+}
+
+TEST(StringTest, SubstringConstructorOutOfRange) {
+    String str1("Hello, World!");
+
+    EXPECT_THROW({
+        try {
+            String str2(str1, 15, 5);
+            FAIL() << "Expected std::out_of_range";
+        }
+ catch (const std::out_of_range&) {
+     
+     throw;
+ }
+        }, std::out_of_range);
+}
+
+TEST(StringTest, SubstringConstructorWithNpos) {
+    String str1("Hello, World!");
+    String str2(str1, 7, String::npos);
+
+    EXPECT_EQ(str2.size(), 6);
+    EXPECT_STREQ(str2.data(), "World!");
+}
+
+TEST(StringTest, Size) {
+    String str1("Hello");
+
+    EXPECT_EQ(str1.size(), 5);
+
+    String str2;
+    EXPECT_EQ(str2.size(), 0);
+}
+
+TEST(StringTest, Capacity) {
+    String str1("Hello");
+
+    EXPECT_GE(str1.capacity(), str1.size());
+}
+
+TEST(StringTest, Reserve) {
+    String str1("Hello");
+    size_t oldCapacity = str1.capacity();
+
+    str1.reserve(20);
+
+    EXPECT_GE(str1.capacity(), 20);
+    EXPECT_EQ(str1.size(), 5);
+}
+
+TEST(StringTest, ReserveOutOfRange) {
+    String str1("Hello");
+
+    EXPECT_THROW({
+        try {
+            str1.reserve(static_cast<size_t>(-1));
+            FAIL() << "Expected std::out_of_range";
+        }
+ catch (const std::out_of_range&) {
+     throw;
+ }
+        }, std::out_of_range);
+}
+
+TEST(StringTest, Clear) {
+    String str1("Hello");
+    str1.clear();
+
+    EXPECT_EQ(str1.size(), 0);
+    EXPECT_GT(str1.capacity(), 0);
+}
+
+TEST(StringTest, ClearOnEmptyString) {
+    String str1;
+    str1.clear();
+
+    EXPECT_EQ(str1.size(), 0);
+}
+
+
+
+
+
 void AllCopyClearReserv() {
     testCopyConstructor();
 
