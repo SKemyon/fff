@@ -1,4 +1,4 @@
-#include "fff.h"
+#include "String.h"
 String::StringData::StringData() : refCount(1), capacity(0), strLenght(0), data(nullptr) {}
 String::StringData::StringData(const char* str) : refCount(1), capacity(strlen(str)), data(new char[strlen(str) + 1]) {
     strLenght = capacity;

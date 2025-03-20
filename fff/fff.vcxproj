@@ -24,6 +24,7 @@
     <ProjectGuid>{08e08d50-8c9a-45c8-b8b2-11fb233a705e}</ProjectGuid>
     <RootNamespace>fff</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>String</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -130,21 +131,11 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\googletest\googletest\src\gtest-all.cc" />
     <ClCompile Include="..\..\..\..\googletest\googletest\src\gtest_main.cc" />
-    <ClCompile Include="fff.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="tests_cnstr.cpp" />
-    <ClCompile Include="tests_copy_cleat_reserve.cpp" />
-    <ClCompile Include="tests_etc.cpp" />
-    <ClCompile Include="tests_insert.cpp" />
-    <ClCompile Include="tests_operators.cpp" />
+    <ClCompile Include="String.cpp" />
+    <ClCompile Include="Tests.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fff.h" />
-    <ClInclude Include="tests_cnstr.h" />
-    <ClInclude Include="tests_copy_cleat_reserve.h" />
-    <ClInclude Include="tests_etc.h" />
-    <ClInclude Include="tests_insert.h" />
-    <ClInclude Include="tests_operator.h" />
+    <ClInclude Include="String.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
