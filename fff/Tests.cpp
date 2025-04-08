@@ -467,5 +467,3 @@ TEST(StringTest, Data) {
     String emptyStr;
     EXPECT_THROW(emptyStr.data(), std::out_of_range);
 }
-//str+"" countref неправильный
-//std::swap([]stringdata, []stringdata)
