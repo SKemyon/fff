@@ -97,10 +97,34 @@ TEST(StringTest, Size) {
     EXPECT_EQ(str2.size(), 0);
 }
 
-TEST(StringTest, Capacity) {
-    String str1("Hello");
+TEST(StringTest, countRef) {
+    String str1("");
+    String str3 = str1;
+    String str2(nullptr);
+    String str4 = str2;
+    str1 = str4;
+    EXPECT_EQ(str1.countRef(), 3);
+    EXPECT_EQ(str3.countRef(), 1);
+    
+    EXPECT_EQ(str2.countRef(), 3);
+    EXPECT_EQ(str4.countRef(), 3);// в
+}
 
-    EXPECT_GE(str1.capacity(), str1.size());
+TEST(StringTest, Capacity) {////////
+    String str1(nullptr);
+    String str2("fffffffffff");
+    EXPECT_EQ(str1.capacity(), 0);
+    EXPECT_EQ(str2.capacity(), 11);
+    str1.reserve(7);
+    str2.reserve(3);
+    EXPECT_EQ(str1.capacity(), 7);
+    EXPECT_EQ(str2.capacity(), 3);
+    String str3;
+    EXPECT_EQ(str3.capacity(), 0);
+    String str4("");
+    EXPECT_EQ(str4.capacity(), 0);
+    str4 += "AAAA";
+    EXPECT_EQ(str4.capacity(), 4);
 }
 
 TEST(StringTest, Reserve) {
@@ -160,8 +184,23 @@ TEST(StringTest, Erase) {
     EXPECT_TRUE(str.empty());
 }
 
+//TEST(StringTest, ReplaceCStr) {
+//    String str("Hello, World!");
+//    str.replace(7, 5, "Universe");
+//    EXPECT_STREQ(str.data(), "Hello, Universe!");
+//
+//    str.replace(6, 8, "");
+//    EXPECT_STREQ(str.data(), "Hello,e!");
+//
+//    EXPECT_THROW(str.replace(15, 1, "Test"), std::out_of_range);
+//
+//    EXPECT_NO_THROW(str.replace(0, String::npos, "Start"));
+//    EXPECT_STREQ(str.data(), "Start");
+//}
+
 TEST(StringTest, ReplaceCStr) {
     String str("Hello, World!");
+
     str.replace(7, 5, "Universe");
     EXPECT_STREQ(str.data(), "Hello, Universe!");
 
@@ -172,7 +211,36 @@ TEST(StringTest, ReplaceCStr) {
 
     EXPECT_NO_THROW(str.replace(0, String::npos, "Start"));
     EXPECT_STREQ(str.data(), "Start");
+
+    str.replace(0, 0, "Hello");
+    EXPECT_STREQ(str.data(), "HelloStart");
+
+    str.replace(5, 5, "!!!");
+    EXPECT_STREQ(str.data(), "Hello!!!");
+
+
+    str.replace(5, 3, "Wonderful");
+    EXPECT_STREQ(str.data(), "HelloWonderful");
+
+    str.replace(0, str.size(), "New String");
+    EXPECT_STREQ(str.data(), "New String");
+
+    str.replace(0, 4, "Test ");
+    EXPECT_STREQ(str.data(), "Test String");
+
+    String emptyStr("");
+    EXPECT_NO_THROW(emptyStr.replace(0, 0, "Empty"));
+    EXPECT_STREQ(emptyStr.data(), "Empty");
+
+
+    String singleCharStr("A");
+    EXPECT_NO_THROW(singleCharStr.replace(0, 1, "B"));
+    EXPECT_STREQ(singleCharStr.data(), "B");
+
+    EXPECT_THROW(str.replace(-1, 1, "Test"), std::out_of_range);
 }
+
+
 
 TEST(StringTest, ReplaceString) {
     String str("Hello, World!");
@@ -241,12 +309,10 @@ TEST(StringTest, FindChar) {
 TEST(StringTest, Substr) {
     String str("Hello, World!");
 
-    String* subStr = str.substr(7, 5);
-    EXPECT_STREQ(subStr->data(), "World");
-
+    String subStr = str.substr(0);
+    std::cout << subStr.data();
+    EXPECT_STREQ(subStr.data(), "Hello, World!");
     EXPECT_THROW(str.substr(15, 5), std::out_of_range);
-
-    delete subStr;
 }
 
 TEST(StringTest, InsertNullptrSTR) {
@@ -401,3 +467,5 @@ TEST(StringTest, Data) {
     String emptyStr;
     EXPECT_THROW(emptyStr.data(), std::out_of_range);
 }
+//str+"" countref неправильный
+//std::swap([]stringdata, []stringdata)

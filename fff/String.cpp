@@ -120,7 +120,7 @@ bool String::empty() const {
     return !(size() > 0);
 }
 
-size_t String::countRef() {
+size_t String::countRef() const{
     return stringData->refCount;
 }
 
@@ -214,6 +214,15 @@ String& String::operator+=(const String& str) {
 
 
 String& String::operator+=(const char* str) {
+    if (str == nullptr) {
+        return *this;
+    }
+    std::string str1 = str;
+    size_t len1 = str1.size();
+    if (len1 == 0)
+    {
+        return *this;
+    }
     if (!str)
     {
         return *this;
@@ -292,11 +301,10 @@ String& String::insert(size_t pos, const char* str) {
         *this += str;
         return *this;
     }
-    String* box = new String(*this, pos, -1);
+    String box(*this, pos, -1);
     reserve(pos);
     *this += str;
-    *this += *box;
-    delete box;
+    *this += box;
     return *this;
 }
 
@@ -342,10 +350,9 @@ String& String::replace(size_t pos, size_t len, size_t n, char c) {
 }
 
 void String::swap(String& str) {
-    String* box = new String(str);
+    String box(str);
     str.stringData = stringData;
-    stringData = box->stringData;
-    delete box;
+    stringData = box.stringData;
 }
 
 size_t String::find(char c, size_t pos) const {
@@ -363,7 +370,7 @@ size_t String::find(char c, size_t pos) const {
 
 size_t String::find(const char* str, size_t pos) const {
     if (pos >= size()) {
-        npos; 
+        return npos;
     }
     std::string substring = str;
     size_t sub_len = substring.size();
@@ -383,13 +390,16 @@ size_t String::find(const String& str, size_t pos) const {
     return find(str.data(), pos);
 }
 
-String* String::substr(size_t pos, size_t len) const{
+String String::substr(size_t pos, size_t len) const{
     std::string str = data();
+    if (len == npos) {
+        len = size();
+    }
     std::string subStr = str.substr(pos, len);
     char* substring = new char[len + 1];
     subStr.copy(substring, len);
     substring[len] = '\0';
-    String* return_String = new String(substring);
+    String return_String(substring);
     delete[] substring;
     return return_String;
 }
@@ -399,4 +409,8 @@ String::~String() {
 
         delete stringData;
     }
+}
+
+int String::compare(const String& str) {
+    return std::strcmp(data(), str.data());
 }
