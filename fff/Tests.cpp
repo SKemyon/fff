@@ -4,7 +4,7 @@
 TEST(StringTest, DefaultConstructor) {
     String str;
     EXPECT_EQ(str.size(), 0);
-    EXPECT_THROW(str.data(), std::out_of_range);
+    EXPECT_EQ(str.data(), "\0");
 }
 
 TEST(StringTest, ConstructorFromCStr) {
@@ -17,7 +17,7 @@ TEST(StringTest, ConstructorFromCStr) {
 TEST(StringTest, ConstructorFromNullCStr) {
     String str(nullptr);
     EXPECT_EQ(str.size(), 0);
-    EXPECT_THROW(str.data(), std::out_of_range);
+    EXPECT_EQ(str.data(), "\0");
 }
 
 TEST(StringTest, ConstructorFromCStrWithLength) {
@@ -465,5 +465,86 @@ TEST(StringTest, Data) {
     EXPECT_STREQ(str.data(), "Hello");
 
     String emptyStr;
-    EXPECT_THROW(emptyStr.data(), std::out_of_range);
+    EXPECT_EQ(emptyStr.data(), "\0");
 }
+
+/////////////////////////////////////////////////////////////
+
+TEST(StringTest, cRef) {
+    String emptyString;
+    String str("TEST_STRING");
+    const String copy(str);
+    str.insert(0, nullptr);
+    ASSERT_TRUE(copy.countRef() == 2);
+    str.insert(0, "");
+    ASSERT_TRUE(copy.countRef() == 2);
+    str.insert(0, "\0");
+    ASSERT_TRUE(copy.countRef() == 2);
+}
+
+TEST(StringTest, newSubStrTest) {
+    String str2("abcd");
+    std::stringstream tmp;
+    tmp << str2.substr().data();
+    EXPECT_EQ(tmp.str(), "abcd");
+    tmp.str("");
+
+    tmp << str2.substr(0).data();
+    EXPECT_EQ(tmp.str(), "abcd");
+    tmp.str("");
+
+    tmp << str2.substr(0, 4).data();
+    EXPECT_EQ(tmp.str(), "abcd");
+    tmp.str("");
+
+    tmp << str2.substr(2, 3).data();
+    EXPECT_EQ(tmp.str(), "cd");
+    tmp.str("");
+
+    tmp << str2.substr(3).data();
+    EXPECT_EQ(tmp.str(), "d");
+    tmp.str("");
+
+    tmp << str2.substr(3, 1).data();
+    EXPECT_EQ(tmp.str(), "d");
+    tmp.str("");
+
+    tmp << str2.substr(3, 0).data();
+    EXPECT_EQ(tmp.str(), "");
+    tmp.str("");
+    EXPECT_ANY_THROW(str2.substr(7, 8).data());
+}
+
+
+TEST(StringTest, newTest) {
+    String str3("abcdefg", 4);
+
+    EXPECT_EQ(str3.at(0), 'a');
+    EXPECT_EQ(str3.at(3), 'd');
+    EXPECT_ANY_THROW(str3.at(7));
+    EXPECT_EQ(str3[0], 'a');
+    EXPECT_EQ(str3[3], 'd');
+    EXPECT_EQ(str3.front(), 'a');
+    EXPECT_EQ(str3.back(), 'd');
+    {
+        const String str;
+        ASSERT_EQ(str.at(0), '\0');
+    }
+
+    {
+        const String str(nullptr);
+        ASSERT_EQ(str.at(0), '\0');
+    }
+
+    {
+        const String str(nullptr, String::npos);
+        ASSERT_EQ(str.at(0), '\0');
+    }
+
+    {
+        const String str("\0");
+        ASSERT_EQ(str.at(0), '\0');
+    }
+}
+
+

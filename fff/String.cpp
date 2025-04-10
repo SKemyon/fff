@@ -139,13 +139,24 @@ const char& String::operator[](size_t pos) const {
     if (pos < size() && pos >= 0) {
         return stringData->data[pos];
     }
+    if (size() == 0 and pos == 0) {
+        return '\0';
+    }
     throw std::out_of_range("String::at");
 }
 
 
 char& String::operator[](size_t pos) {
+    if (size() == 0 and pos == 0) {
+        if (stringData->refCount > 1) {
+            stringData->refCount--;
+            stringData = new StringData("\0");
+        }
 
-    if (pos < size() && pos >= 0) {
+        return stringData->data[pos]; 
+    }
+
+    if ((pos < size() && pos >= 0)) {
         if (stringData->refCount > 1) {
             stringData->refCount--;
             stringData = new StringData(stringData->data);
@@ -279,7 +290,7 @@ String& String::operator=(const char* str) {
 
 const char* String::data() const {
     if (empty()) {
-        throw std::out_of_range("data is empty");
+        return "\0";
     }
     return stringData->data;
 }
@@ -293,6 +304,9 @@ String& String::insert(size_t pos, const String& str) {
 }
 
 String& String::insert(size_t pos, const char* str) {
+    if (str == nullptr || std::string(str).size() == 0) {
+        return *this;
+    }
     size_t len = size();
     if (pos > len) {
         throw std::out_of_range("out of range in insert");
@@ -395,6 +409,11 @@ String String::substr(size_t pos, size_t len) const{
     if (len == npos) {
         len = size();
     }
+
+    if (len + pos > size()) {
+        len = size() - pos;
+    }
+
     std::string subStr = str.substr(pos, len);
     char* substring = new char[len + 1];
     subStr.copy(substring, len);
