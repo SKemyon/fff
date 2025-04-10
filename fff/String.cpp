@@ -140,7 +140,7 @@ const char& String::operator[](size_t pos) const {
         return stringData->data[pos];
     }
     if (size() == 0 and pos == 0) {
-        return '\0';
+        return data()[0];
     }
     throw std::out_of_range("String::at");
 }
