@@ -4,7 +4,7 @@
 class String {
 
     class StringData {
-    private:
+public:
         char* data;
         int refCount;
         size_t capacity;
@@ -15,7 +15,6 @@ class String {
         StringData(const char* str, size_t n);
         StringData(size_t n, char c);
         ~StringData();
-        friend class String;
     };
 private:
     StringData* stringData{};
@@ -59,6 +58,6 @@ public:
     size_t find(const char* str, size_t pos = 0) const;
     size_t find(char c, size_t pos = 0) const;
     String substr (size_t pos = 0, size_t len = npos) const;
-    int compare(const String& str);
+    int compare(const String& str) const;
     ~String();
 };

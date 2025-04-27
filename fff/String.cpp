@@ -147,14 +147,14 @@ const char& String::operator[](size_t pos) const {
 
 
 char& String::operator[](size_t pos) {
-    if (size() == 0 and pos == 0) {
+    /*if (size() == 0 and pos == 0) {
         if (stringData->refCount > 1) {
             stringData->refCount--;
             stringData = new StringData("\0");
         }
 
         return stringData->data[pos]; 
-    }
+    }*/
 
     if ((pos < size() && pos >= 0)) {
         if (stringData->refCount > 1) {
@@ -228,7 +228,7 @@ String& String::operator+=(const char* str) {
     if (str == nullptr) {
         return *this;
     }
-    std::string str1 = str;
+    String str1 = str;
     size_t len1 = str1.size();
     if (len1 == 0)
     {
@@ -304,7 +304,7 @@ String& String::insert(size_t pos, const String& str) {
 }
 
 String& String::insert(size_t pos, const char* str) {
-    if (str == nullptr || std::string(str).size() == 0) {
+    if (str == nullptr || strlen(str) == 0) {
         return *this;
     }
     size_t len = size();
@@ -358,8 +358,13 @@ String& String::replace(size_t pos, size_t len, const String& str) {
 }
 
 String& String::replace(size_t pos, size_t len, size_t n, char c) {
-    String Str = String(n, c);
-    replace(pos, len, Str);
+    char* tmp = new char[n+1];
+    for (int i = 0; i < n; ++i) {
+        tmp[i] = c;
+    }
+    tmp[n] = '\0';
+    replace(pos, len, tmp);
+    delete[] tmp;
     return *this;
 }
 
@@ -430,6 +435,6 @@ String::~String() {
     }
 }
 
-int String::compare(const String& str) {
+int String::compare(const String& str) const{
     return std::strcmp(data(), str.data());
 }
