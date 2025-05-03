@@ -17,12 +17,20 @@ std::size_t VertexHash::operator()(const vertex& v) const {
        return std::hash<std::string>()(v.takeName());
     }
 
+std::size_t EdgeHash::operator()(const edge& v) const {
+    std::vector<std::string> ver = { v.getSource().takeName(), v.getDestination().takeName()};
+    std::sort(ver.begin(), ver.end());
+    size_t hashValue = std::hash<std::string>()(ver[0]) ^ (std::hash<std::string>()(ver[1]) << 1);
+    return hashValue;
+}
 
 
-readFromUnweightedFile::readFromUnweightedFile(const std::string& filename, Graph& gr) {
+
+readFromUnweightedFile::readFromUnweightedFile(const std::string& filename) {
+    Graph gr;
         std::ifstream file(filename);
         if (!file.is_open()) {
-            throw std::runtime_error("Error: could not open " + filename);
+            throw std::runtime_error("error: dont open " + filename);
         }
         std::string line;
         while (getline(file, line)) {
@@ -45,11 +53,16 @@ readFromUnweightedFile::readFromUnweightedFile(const std::string& filename, Grap
                 }
             }
             else {
-               throw std::runtime_error("Warning: Invalid line format: " + filename);
+               throw std::runtime_error("warning: invalid format: " + filename);
             }
         }
+        Grph = gr;
         file.close();
     }
+
+Graph readFromUnweightedFile::getGrph() const{
+    return Grph;
+}
 
 
 
@@ -69,17 +82,6 @@ vertex edge::getDestination() const{
     return destination;
 }
 
-namespace std {
-    template <>
-    struct hash<edge> {
-
-        size_t operator()(const edge& key) const {
-            return std::hash<std::string>()(key.getDestination().takeName());
-        }
-    };
-}
-
-
 
 Graph::Graph() {}
 void Graph::addVertex(const vertex& newVer){
@@ -89,33 +91,41 @@ void Graph::addVertex(const vertex& newVer){
         graph[newVer];
     }
 
-void Graph::addEdge(const edge& Edge) {
-        addVertex(Edge.getSource());
-        addVertex(Edge.getDestination());       
-        if (std::find(graph[Edge.getSource()].begin(), graph[Edge.getSource()].end(), Edge) == graph[Edge.getSource()].end()) {
-            graph[Edge.getSource()].push_back(Edge);
-            return;
-        }
-        throw std::runtime_error("Warning: two same edges");
-    }
+//void Graph::addEdge(const edge& Edge) {
+//        addVertex(Edge.getSource());
+//        addVertex(Edge.getDestination());     //find
+//        if (std::find(graph[Edge.getSource()].begin(), graph[Edge.getSource()].end(), Edge) == graph[Edge.getSource()].end()) {
+//            graph[Edge.getSource()].push_back(Edge);
+//            return;
+//        }
+//        throw std::runtime_error("Warning: two same edges");
+//    }
 
-std::unordered_map<vertex, std::vector<edge>, VertexHash> Graph::getAdjacencyList() const{
+
+void Graph::addEdge(const edge& Edge) {
+    addVertex(Edge.getSource());
+    addVertex(Edge.getDestination());
+
+    auto res = graph[Edge.getSource()].insert(Edge);
+    if (!res.second) {
+        throw std::runtime_error("warning: two same edges");
+    }
+}
+
+
+std::unordered_map<vertex, std::unordered_set<edge, EdgeHash>, VertexHash> Graph::getAdjacencyList() const{
         return graph;
     }
 
 
 
-PathFinder::PathFinder(const Graph& g, const vertex& A, const vertex& B) {
-}
+PathFinder::PathFinder(const Graph& g, const vertex& A, const vertex& B) {}
 std::vector<vertex> PathFinder::getPath() const {
         return path;
     }
 
-bool PathFinder::empty() const {
-    if (path.empty()) {
-        return  1;
-    }
-    return 0;
+bool PathFinder::empty() const { 
+    return path.empty();
 }
 
 void PathFinder::printPath() const {
@@ -127,7 +137,7 @@ void PathFinder::printPath() const {
             std::cout << std::endl;
         }
         else {
-            std::cout << "No path found." << std::endl;
+            std::cout << "No path" << std::endl;
         }
     }
 
@@ -147,17 +157,18 @@ dfsPathFinder::dfsPathFinder(const Graph& g, const vertex& A, const vertex& B)
 std::vector<vertex> dfsPathFinder::ShortestPath(const vertex& start, const vertex& goal, const Graph& g) const{
         const auto& AdjacencyList = g.getAdjacencyList();
         if (AdjacencyList.find(start) == AdjacencyList.end() || AdjacencyList.find(goal) == AdjacencyList.end()) {
-            throw std::runtime_error("Error: Start or goal node does not exist in the graph.");
+            throw std::runtime_error("error: start or goal node not exist");
         }
 
-        std::stack<std::vector<vertex>> stack;
-        stack.push({ start });
+        std::stack<vertex> stack;
         std::unordered_set<vertex, VertexHash> visited;
+        std::unordered_map<vertex, vertex, VertexHash> preds;
+
+        stack.push(start);
 
         while (!stack.empty()) {
-            std::vector<vertex> path = stack.top();
+            vertex node = stack.top();
             stack.pop();
-            vertex node = path.back();
 
             if (visited.contains(node)) {
                 continue;
@@ -165,20 +176,27 @@ std::vector<vertex> dfsPathFinder::ShortestPath(const vertex& start, const verte
             visited.insert(node);
 
             if (node == goal) {
-                return path; 
+                std::vector<vertex> path;
+                for (vertex v = goal; v != start; v = preds[v]) {
+                    path.push_back(v);
+                }
+                path.push_back(start);
+                std::reverse(path.begin(), path.end()); 
+                return path;
             }
 
             for (const edge& neighbor : AdjacencyList.at(node)) {
-                if (visited.find(neighbor.getDestination()) == visited.end()) {
-                    std::vector<vertex> new_path = path;
-                    new_path.push_back(neighbor.getDestination());
-                    stack.push(new_path);
+                vertex destination = neighbor.getDestination();
+                if (visited.find(destination) == visited.end()) {
+                    stack.push(destination);
+                    preds[destination] = node; 
                 }
             }
         }
-        throw std::runtime_error("Error: path does not exist in the graph.");
+        throw std::runtime_error("error: path not exist");
 
-    }
+}
+
 
 
 bfsPathFinder::bfsPathFinder(const Graph& g, const vertex& A, const vertex& B)
@@ -190,13 +208,70 @@ bfsPathFinder::bfsPathFinder(const Graph& g, const vertex& A, const vertex& B)
         std::cout << a.what();
     }
     }
-
 std::vector<vertex> bfsPathFinder::ShortestPath(const vertex& start, const vertex& goal, const Graph& g) const{
         const auto& AdjacencyList = g.getAdjacencyList();
         if (AdjacencyList.find(start) == AdjacencyList.end() || AdjacencyList.find(goal) == AdjacencyList.end()) {
-            throw std::runtime_error("Error: Start or goal node does not exist in the graph.");
+            throw std::runtime_error("error: start or goal node not exist");
         }
-        std::queue<std::vector<vertex>> q;
+        std::queue<vertex> que;
+        std::unordered_set<vertex, VertexHash> visited;
+        std::unordered_map<vertex, vertex, VertexHash> preds;
+
+        que.push(start);
+
+        while (!que.empty()) {
+            vertex node = que.front();
+            que.pop();
+
+            if (visited.find(node) != visited.end()) {
+                continue;
+            }
+            visited.insert(node);
+
+            if (node == goal) {
+                std::vector<vertex> path;
+                for (vertex v = goal; v != start; v = preds[v]) {
+                    path.push_back(v);
+                }
+                path.push_back(start);
+                std::reverse(path.begin(), path.end()); 
+                return path;
+            }
+
+            for (const edge& neighbor : AdjacencyList.at(node)) {
+                vertex destination = neighbor.getDestination();
+                if (visited.find(destination) == visited.end()) {
+                    que.push(destination);
+                    preds[destination] = node;
+                    
+                }
+            }
+        }
+        throw std::runtime_error("error: path not exist");
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        /*std::queue<std::vector<vertex>> q;
         q.push({ start });
         std::unordered_set<vertex, VertexHash> visited;
         while (!q.empty()) {
@@ -219,16 +294,34 @@ std::vector<vertex> bfsPathFinder::ShortestPath(const vertex& start, const verte
                 new_path.push_back(neighbor.getDestination());
                 q.push(new_path);
             }
-        }
-        throw std::runtime_error("Error: path does not exist in the graph.");
-    }
+        }*/
+        ////////////////////////////////
+            //    std::stack<std::vector<vertex>> stack;
+            //    stack.push({ start });
+            //    std::unordered_set<vertex, VertexHash> visited;
+            //    //сохранять вершину плюс вершину из которой мы попали в вершину
+            //    while (!stack.empty()) {
+            //        std::vector<vertex> path = stack.top();
+            //        stack.pop();
+            //        vertex node = path.back();
 
+            //        if (visited.contains(node)) {
+            //            continue;
+            //        }
+            //        visited.insert(node);
 
+            //        if (node == goal) {
+            //            return path; 
+            //        }
 
+            //        for (const edge& neighbor : AdjacencyList.at(node)) {
+            //            if (visited.find(neighbor.getDestination()) == visited.end()) {
+            //                std::vector<vertex> new_path = path;
+            //                new_path.push_back(neighbor.getDestination());
+            //                stack.push(new_path);
+            //            }
+            //        }
+            //    }
+            //    throw std::runtime_error("Error: path does not exist in the graph.");
 
-
-
-
-
-
-
+            //}

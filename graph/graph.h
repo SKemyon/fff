@@ -7,7 +7,7 @@
 #include <stack>
 #include <optional>
 
-class vertex {
+class vertex final{
 public:
     vertex();
     vertex(const std::string& vername);
@@ -22,7 +22,8 @@ struct VertexHash {
 };
 
 
-class edge {
+
+class edge final{
 public:
     edge();
     edge(const vertex& u,const vertex& v);
@@ -34,27 +35,33 @@ private:
     vertex destination;
 };
 
+struct EdgeHash {
+    std::size_t operator()(const edge& v) const;
+};
 
-class Graph {
+class Graph final {
 public:
     Graph();
     void addVertex(const vertex& newVer);
 
     void addEdge(const edge& Edge);
 
-    std::unordered_map<vertex, std::vector<edge>, VertexHash> getAdjacencyList() const;
+    std::unordered_map<vertex, std::unordered_set<edge, EdgeHash>, VertexHash> getAdjacencyList() const;
 private:
-    std::unordered_map<vertex, std::vector<edge>, VertexHash> graph;
+    std::unordered_map<vertex, std::unordered_set<edge, EdgeHash>, VertexHash> graph;
 };
 
 
-class readFromUnweightedFile {
+class readFromUnweightedFile final{
 public:
-    readFromUnweightedFile(const std::string& filename, Graph& gr);
+    readFromUnweightedFile(const std::string& filename);
+    Graph getGrph() const;
+private: 
+    Graph Grph;
 };
 
 
-class PathFinder {
+class PathFinder{
 public:
     PathFinder(const Graph& g, const vertex& A, const vertex& B);
     std::vector<vertex> getPath() const;
