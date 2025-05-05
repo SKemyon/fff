@@ -1,5 +1,5 @@
 #include "graph.h"
-int main() {
+int mymain() {
     std::string sss1 = "graph.txt";
     readFromUnweightedFile File(sss1);
     /*for (const auto& pair : Gr1.getAdjacencyList()) {
@@ -11,7 +11,7 @@ int main() {
         }
     }*/
     vertex C("A");
-    vertex D("B");
+    vertex D("l");
     bfsPathFinder bfsPathFinder(File.getGrph(), C, D);
     bfsPathFinder.printPath();
     return 0;

@@ -152,6 +152,7 @@ dfsPathFinder::dfsPathFinder(const Graph& g, const vertex& A, const vertex& B)
         }
     catch (std::runtime_error& a) {
         std::cout<< a.what();
+        throw;
     }  
     }
 std::vector<vertex> dfsPathFinder::ShortestPath(const vertex& start, const vertex& goal, const Graph& g) const{
@@ -206,6 +207,7 @@ bfsPathFinder::bfsPathFinder(const Graph& g, const vertex& A, const vertex& B)
     }
     catch (std::runtime_error& a) {
         std::cout << a.what();
+        throw;
     }
     }
 std::vector<vertex> bfsPathFinder::ShortestPath(const vertex& start, const vertex& goal, const Graph& g) const{
