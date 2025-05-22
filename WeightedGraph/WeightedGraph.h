@@ -60,10 +60,8 @@ private:
 
 class readFromWeightedFile final{
 public:
-    readFromWeightedFile(const std::string& filename);
-    Graph getGrph() const;
-private:
-    Graph Grph;
+    readFromWeightedFile() = delete;
+    static Graph getGrph(const std::string& filename);
 };
 
 

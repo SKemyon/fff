@@ -27,7 +27,7 @@ std::size_t EdgeHash::operator()(const edge& v) const {
 
 
 
-readFromWeightedFile::readFromWeightedFile(const std::string& filename) {
+Graph readFromWeightedFile::getGrph(const std::string& filename) {
     Graph gr;
         std::ifstream file(filename);
         if (!file.is_open()) {
@@ -58,13 +58,9 @@ readFromWeightedFile::readFromWeightedFile(const std::string& filename) {
                 throw std::runtime_error("warning: invalid format: " + filename);
             }
         }
-        Grph = gr;
         file.close();
+        return gr;
     }
-
-Graph readFromWeightedFile::getGrph() const {
-    return Grph;
-}
 
 
 
