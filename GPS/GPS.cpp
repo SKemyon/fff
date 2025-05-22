@@ -54,7 +54,7 @@ std::time_t GPXParser::parseTime(const std::string& timestr) {
 
 FinalAnalyzis::FinalAnalyzis(std::optional<double> totalDist, std::optional<double> totalTm, 
     std::optional<double> movingTm, std::optional<double> maxSpd, std::optional<double> avgSpd,
-    std::optional<double> avgMovingSpd, std::optional<std::map<int, double >> speedDistr, 
+    std::optional<double> avgMovingSpd, const std::optional<std::unordered_map<int, double >>& speedDistr, 
     std::optional<double> mele, std::optional<double> maxele, std::optional<double> elegain, std::optional<double> eleloss) {
         totalDistance = totalDist;
         totalTime = totalTm;
@@ -124,7 +124,7 @@ FinalAnalyzis EleAnalyzer::Analyze(double stopSpeed, int speedBin){
         double maxSpeed = 0; 
         double avgSpeed = 0; 
         double avgMovingSpeed = 0;
-        std::map<int, double> speedDistribution;
+        std::unordered_map<int, double> speedDistribution;
         if (points.size() < 2) {
             throw std::runtime_error("error: Wrong type");
         }

@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <map>
 #include <optional>
+#include <unordered_map>
 
 
 struct TrackPoint {
@@ -30,13 +31,13 @@ private:
 struct FinalAnalyzis {
     FinalAnalyzis(std::optional<double> totalDist, std::optional<double> totalTm,
         std::optional<double> movingTm, std::optional<double> maxSpd, std::optional<double> avgSpd,
-        std::optional<double> avgMovingSpd, std::optional<std::map<int, double >> speedDistr,
+        std::optional<double> avgMovingSpd, const std::optional<std::unordered_map<int, double >>& speedDistr,
         std::optional<double> mele, std::optional<double> maxele, std::optional<double> elegain, std::optional<double> eleloss);//const, unordered_map
 
 
     std::optional<double> minEle, maxEle, elevationGain, elevationLoss;
     std::optional<double> totalDistance, totalTime, movingTime, maxSpeed, avgSpeed, avgMovingSpeed;
-    std::optional<std::map<int, double>> speedDistribution;
+    std::optional<std::unordered_map<int, double>> speedDistribution;
 };
 
 
