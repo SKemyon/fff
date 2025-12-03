@@ -1,310 +1,3 @@
-//#include <iostream>
-//#include <thread>
-//#include <mutex>
-//#include <atomic>
-//#include <vector>
-//#include <map>
-//#include <queue>
-//#include <random>
-//#include <chrono>
-//#include <future>
-//#include <algorithm>
-//#include <condition_variable>
-//#include <string>
-//
-//const double BROKER_FEE_PER_MINUTE = 1.0;
-//
-//enum class OrderType {
-//	BUY,
-//	SELL
-//};
-//
-//
-//
-//class Order {
-//public:
-//    Order(int ProdAmount, double price, OrderType type, int Id) {
-//
-//    };
-//    size_t OwnerId;
-//    OrderType Type;
-//    double Price;
-//    int amount;
-//    std::chrono::system_clock::time_point timestamp;
-//};
-//
-//
-//
-//
-//class PriceLevel {
-//public:
-//    double price;
-//    int totalQuantity;
-//    std::deque<Order> orders;
-//
-//    void popFrontIfEmpty() {
-//        if (!orders.empty() && orders.front().amount <= 0) orders.pop_front();
-//    }
-//};
-//
-//
-//
-//
-//class OrderBook {
-//    std::map<double, PriceLevel, std::greater<double>> BuyLevels;
-//    std::map<double, PriceLevel> SellLevels;
-//
-//  
-//public:
-//    void addOrder(int ProdAmount, double price, OrderType type, int Id){
-//        
-//        
-//        if (type == OrderType::BUY) {
-//            auto Level = BuyLevels[price];
-//            Level.orders.push_back(Order(ProdAmount, price, type, Id));
-//            Level.totalQuantity += ProdAmount;
-//        }
-//
-//        else {
-//            auto Level = SellLevels[price];
-//            Level.orders.push_back(Order(ProdAmount, price, type, Id));
-//            Level.totalQuantity += ProdAmount;
-//        }
-//    }
-//
-//
-//
-//
-// /*   Deal MakeDeal() {
-//            while (!BuyLevels.empty() && !SellLevels.empty()) {
-//                double bestBuyPrice = BuyLevels.begin()->first;
-//                double bestSellPrice = SellLevels.begin()->first;
-//
-//                if (bestBuyPrice >= bestSellPrice) {
-//                    PriceLevel& bestBuy = BuyLevels.begin()->second;
-//                    PriceLevel& bestSell = SellLevels.begin()->second;
-//
-//                    int tradeQuantity = std::min(bestBuy.totalQuantity, bestSell.totalQuantity);
-//                    
-//                    
-//                    if (bestBuy.totalQuantity == 0) BuyLevels.erase(BuyLevels.begin());
-//                    if (bestSell.totalQuantity == 0) SellLevels.erase(SellLevels.begin());
-//                }
-//                else {
-//                    break;
-//                }
-//            }
-//        }*/
-//
-//   
-//
-//    std::vector<Deal> MakeDeals() {
-//        std::vector<Deal> deals;
-//        while (!BuyLevels.empty() && !SellLevels.empty()) {
-//            auto buyIt = BuyLevels.begin();
-//            auto sellIt = SellLevels.begin();
-//            double bestBuy = buyIt->first;
-//            double bestSell = sellIt->first;
-//            if (bestBuy < bestSell) break;
-//
-//            PriceLevel& bLevel = buyIt->second;
-//            PriceLevel& sLevel = sellIt->second;
-//
-//            if (bLevel.orders.empty() || sLevel.orders.empty()) break;
-//
-//            Order& bOrder = bLevel.orders.front();
-//            Order& sOrder = sLevel.orders.front();
-//
-//            int qty = std::min(bOrder.amount, sOrder.amount);
-//            double price = bestSell;
-//
-//            Deal d(sOrder, bOrder, qty, price);
-//            deals.push_back(d);
-//
-//            // update orders
-//            bOrder.amount -= qty;
-//            sOrder.amount -= qty;
-//            bLevel.totalQuantity -= qty;
-//            sLevel.totalQuantity -= qty;
-//
-//            // update mapping
-//            
-//
-//            bLevel.popFrontIfEmpty();
-//            sLevel.popFrontIfEmpty();
-//
-//            if (bLevel.totalQuantity <= 0) BuyLevels.erase(buyIt);
-//            if (sLevel.totalQuantity <= 0) SellLevels.erase(sellIt);
-//        }
-//        return deals;
-//    }
-//    
-//
-//
-//    double getBestBid() const {
-//        return BuyLevels.empty() ? 0.0 : BuyLevels.rbegin()->first; 
-//    }
-//
-//    double getBestAsk() const {
-//        return SellLevels.empty() ? std::numeric_limits<double>::max() : SellLevels.begin()->first;
-//    }
-//};
-//
-//
-//
-//
-//class Deal {
-//public:
-//    Deal(Order& frst, Order& sec, int amount, double price) {
-//
-//    }
-//    size_t SellId;
-//    size_t BuyId;
-//    double Price;
-//    int Amount;
-//    std::chrono::system_clock::time_point timestamp;
-//};
-//
-//
-//
-//class Exchange {
-//
-//	size_t id;
-//	std::string* ProductName;
-//	double CurPrice;
-//    OrderBook Book;
-//    std::thread feeThread;
-//    std::atomic<bool> running{ false };
-//    std::condition_variable cv;
-//    std::mutex cv_m;
-//    mutable std::mutex mtx;
-//    std::unordered_map<size_t, std::shared_ptr<Broker>> brokers;
-//
-//public:
-//    bool addOrder (int ProdAmount, double price, OrderType type, int Id) {
-//        Book.addOrder(ProdAmount, price, type, Id);
-//    }
-//
-//
-//    Deal MakeDeal(Order& frst, Order& sec) {
-//        return Deal(frst, sec, 8, 9); 
-//    }
-//
-//
-//    bool takeFee() {
-//
-//    }
-//
-//
-//
-//    void registerBroker(const std::shared_ptr<Broker>& b) {
-//        std::lock_guard<std::mutex> lk(mtx);
-//        brokers[b->getId()] = b;
-//    }
-//
-//    void feeCollectorLoop() {
-//        std::unique_lock<std::mutex> lk(cv_m);
-//        while (running) {
-//        }
-//    }
-//
-//    void start() {
-//        bool expected = false;
-//        if (!running.compare_exchange_strong(expected, true)) return;
-//        feeThread = std::thread([this]() { feeCollectorLoop(); });
-//    }
-//
-//    void stop() {
-//        bool expected = true;
-//        if (!running.compare_exchange_strong(expected, false)) return;
-//        cv.notify_all();
-//        if (feeThread.joinable()) feeThread.join();
-//    }
-//
-//	
-//};
-//
-//
-//
-//
-//class Broker {
-//	size_t id;
-//    double cash;
-//    int ProdAmount;
-//
-//public:
-//
-//    double GiveMoney(double value) {
-//        cash -= value;
-//        if (cash >= 0) {
-//            return value;
-//        }
-//        return -1;
-//    }
-//
-//    size_t getId() const { return id; }
-//
-//    double TakeMoney(double value) {
-//        cash += value;
-//        if (cash >= 0) {
-//            return value;
-//        }
-//        return -1;
-//    }
-//
-//    int TakeProd(int value) {
-//        ProdAmount += value;
-//        if (ProdAmount >= 0) {
-//            return value;
-//        }
-//        return -1;
-//    }
-//
-//    int GiveProd(int value) {
-//        ProdAmount -= value;
-//        if (ProdAmount >= 0) {
-//            return value;
-//        }
-//        return -1;
-//    }
-//
-//    
-//
-//    bool addOrder(Exchange &Ex, int PrAmount, double price, OrderType type) {
-//        Ex.addOrder(ProdAmount, price, type, id);
-//        if (type == OrderType::SELL) {
-//            ProdAmount -= PrAmount;
-//            return true;
-//        } 
-//        cash -= price * PrAmount;
-//        return true;
-//    }
-//
-//
-//};
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 
 
 #include <iostream>
@@ -763,219 +456,220 @@ int mmmain() {
 
 
 
-// Пример использования
+// ГЏГ°ГЁГ¬ГҐГ° ГЁГ±ГЇГ®Г«ГјГ§Г®ГўГ Г­ГЁГї
 int main() {
 
     setlocale(LC_ALL, "Ru");
-    std::cout << "=== Запуск биржевой системы ===" << std::endl;
+    std::cout << "=== Г‡Г ГЇГіГ±ГЄ ГЎГЁГ°Г¦ГҐГўГ®Г© Г±ГЁГ±ГІГҐГ¬Г» ===" << std::endl;
 
-    // Создаем биржу для акций Apple
+    // Г‘Г®Г§Г¤Г ГҐГ¬ ГЎГЁГ°Г¦Гі Г¤Г«Гї Г ГЄГ¶ГЁГ© Apple
     auto exchange = std::make_shared<Exchange>("AAPL");
 
-    // Создаем брокеров с разным капиталом
-    auto broker1 = std::make_shared<Broker>(100000.0, 1000);  // 100к денег, 1000 акций
-    auto broker2 = std::make_shared<Broker>(150000.0, 500);   // 150к денег, 500 акций
-    auto broker3 = std::make_shared<Broker>(200000.0, 1500);  // 200к денег, 1500 акций
-    auto broker4 = std::make_shared<Broker>(50000.0, 2000);   // 50к денег, 2000 акций
+    // Г‘Г®Г§Г¤Г ГҐГ¬ ГЎГ°Г®ГЄГҐГ°Г®Гў Г± Г°Г Г§Г­Г»Г¬ ГЄГ ГЇГЁГІГ Г«Г®Г¬
+    auto broker1 = std::make_shared<Broker>(100000.0, 1000);  // 100ГЄ Г¤ГҐГ­ГҐГЈ, 1000 Г ГЄГ¶ГЁГ©
+    auto broker2 = std::make_shared<Broker>(150000.0, 500);   // 150ГЄ Г¤ГҐГ­ГҐГЈ, 500 Г ГЄГ¶ГЁГ©
+    auto broker3 = std::make_shared<Broker>(200000.0, 1500);  // 200ГЄ Г¤ГҐГ­ГҐГЈ, 1500 Г ГЄГ¶ГЁГ©
+    auto broker4 = std::make_shared<Broker>(50000.0, 2000);   // 50ГЄ Г¤ГҐГ­ГҐГЈ, 2000 Г ГЄГ¶ГЁГ©
 
-    std::cout << "\nБрокеры созданы:" << std::endl;
-    std::cout << "Брокер 1: ID=" << broker1->getId() << ", Деньги=" << broker1->getStatus().first
-        << ", Акции=" << broker1->getStatus().second << std::endl;
-    std::cout << "Брокер 2: ID=" << broker2->getId() << ", Деньги=" << broker2->getStatus().first
-        << ", Акции=" << broker2->getStatus().second << std::endl;
-    std::cout << "Брокер 3: ID=" << broker3->getId() << ", Деньги=" << broker3->getStatus().first
-        << ", Акции=" << broker3->getStatus().second << std::endl;
-    std::cout << "Брокер 4: ID=" << broker4->getId() << ", Деньги=" << broker4->getStatus().first
-        << ", Акции=" << broker4->getStatus().second << std::endl;
+    std::cout << "\nГЃГ°Г®ГЄГҐГ°Г» Г±Г®Г§Г¤Г Г­Г»:" << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° 1: ID=" << broker1->getId() << ", Г„ГҐГ­ГјГЈГЁ=" << broker1->getStatus().first
+        << ", ГЂГЄГ¶ГЁГЁ=" << broker1->getStatus().second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° 2: ID=" << broker2->getId() << ", Г„ГҐГ­ГјГЈГЁ=" << broker2->getStatus().first
+        << ", ГЂГЄГ¶ГЁГЁ=" << broker2->getStatus().second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° 3: ID=" << broker3->getId() << ", Г„ГҐГ­ГјГЈГЁ=" << broker3->getStatus().first
+        << ", ГЂГЄГ¶ГЁГЁ=" << broker3->getStatus().second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° 4: ID=" << broker4->getId() << ", Г„ГҐГ­ГјГЈГЁ=" << broker4->getStatus().first
+        << ", ГЂГЄГ¶ГЁГЁ=" << broker4->getStatus().second << std::endl;
 
-    // Регистрируем брокеров на бирже
+    // ГђГҐГЈГЁГ±ГІГ°ГЁГ°ГіГҐГ¬ ГЎГ°Г®ГЄГҐГ°Г®Гў Г­Г  ГЎГЁГ°Г¦ГҐ
     exchange->registerBroker(broker1);
     exchange->registerBroker(broker2);
     exchange->registerBroker(broker3);
     exchange->registerBroker(broker4);
 
-    std::cout << "\nЗапуск биржи..." << std::endl;
+    std::cout << "\nГ‡Г ГЇГіГ±ГЄ ГЎГЁГ°Г¦ГЁ..." << std::endl;
     exchange->start();
 
-    // Даем бирже время на инициализацию
+    // Г„Г ГҐГ¬ ГЎГЁГ°Г¦ГҐ ГўГ°ГҐГ¬Гї Г­Г  ГЁГ­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГѕ
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "\n=== Начало торгов ===" << std::endl;
+    std::cout << "\n=== ГЌГ Г·Г Г«Г® ГІГ®Г°ГЈГ®Гў ===" << std::endl;
 
-    // РАУНД 1: Продавцы выставляют ордера
-    std::cout << "\n1. Продавцы выставляют ордера на продажу:" << std::endl;
+    // ГђГЂГ“ГЌГ„ 1: ГЏГ°Г®Г¤Г ГўГ¶Г» ГўГ»Г±ГІГ ГўГ«ГїГѕГІ Г®Г°Г¤ГҐГ°Г 
+    std::cout << "\n1. ГЏГ°Г®Г¤Г ГўГ¶Г» ГўГ»Г±ГІГ ГўГ«ГїГѕГІ Г®Г°Г¤ГҐГ°Г  Г­Г  ГЇГ°Г®Г¤Г Г¦Гі:" << std::endl;
 
-    // Продавец 1: продает дорого
+    // ГЏГ°Г®Г¤Г ГўГҐГ¶ 1: ГЇГ°Г®Г¤Г ГҐГІ Г¤Г®Г°Г®ГЈГ®
     if (broker1->addOrder(exchange, 100, 155.0, OrderType::SELL)) {
-        std::cout << "   Брокер " << broker1->getId() << ": SELL 100 @ $155.00" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker1->getId() << ": SELL 100 @ $155.00" << std::endl;
     }
 
-    // Продавец 2: продает чуть дешевле
+    // ГЏГ°Г®Г¤Г ГўГҐГ¶ 2: ГЇГ°Г®Г¤Г ГҐГІ Г·ГіГІГј Г¤ГҐГёГҐГўГ«ГҐ
     if (broker2->addOrder(exchange, 50, 154.5, OrderType::SELL)) {
-        std::cout << "   Брокер " << broker2->getId() << ": SELL 50 @ $154.50" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker2->getId() << ": SELL 50 @ $154.50" << std::endl;
     }
 
-    // Продавец 3: продает еще дешевле
+    // ГЏГ°Г®Г¤Г ГўГҐГ¶ 3: ГЇГ°Г®Г¤Г ГҐГІ ГҐГ№ГҐ Г¤ГҐГёГҐГўГ«ГҐ
     if (broker3->addOrder(exchange, 150, 153.0, OrderType::SELL)) {
-        std::cout << "   Брокер " << broker3->getId() << ": SELL 150 @ $153.00" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker3->getId() << ": SELL 150 @ $153.00" << std::endl;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     auto spread1 = exchange->getSpread();
-    std::cout << "   Спред: Bid=" << spread1.first << ", Ask=" << spread1.second << std::endl;
+    std::cout << "   Г‘ГЇГ°ГҐГ¤: Bid=" << spread1.first << ", Ask=" << spread1.second << std::endl;
 
-    // РАУНД 2: Покупатели выходят на рынок
-    std::cout << "\n2. Покупатели выставляют ордера на покупку:" << std::endl;
+    // ГђГЂГ“ГЌГ„ 2: ГЏГ®ГЄГіГЇГ ГІГҐГ«ГЁ ГўГ»ГµГ®Г¤ГїГІ Г­Г  Г°Г»Г­Г®ГЄ
+    std::cout << "\n2. ГЏГ®ГЄГіГЇГ ГІГҐГ«ГЁ ГўГ»Г±ГІГ ГўГ«ГїГѕГІ Г®Г°Г¤ГҐГ°Г  Г­Г  ГЇГ®ГЄГіГЇГЄГі:" << std::endl;
 
-    // Покупатель 4: хочет купить дешево (не сматчится)
+    // ГЏГ®ГЄГіГЇГ ГІГҐГ«Гј 4: ГµГ®Г·ГҐГІ ГЄГіГЇГЁГІГј Г¤ГҐГёГҐГўГ® (Г­ГҐ Г±Г¬Г ГІГ·ГЁГІГ±Гї)
     if (broker4->addOrder(exchange, 200, 152.0, OrderType::BUY)) {
-        std::cout << "   Брокер " << broker4->getId() << ": BUY 200 @ $152.00 (не сматчится)" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker4->getId() << ": BUY 200 @ $152.00 (Г­ГҐ Г±Г¬Г ГІГ·ГЁГІГ±Гї)" << std::endl;
     }
 
-    // Покупатель 3: агрессивная покупка (сматчится с продавцом 3)
+    // ГЏГ®ГЄГіГЇГ ГІГҐГ«Гј 3: Г ГЈГ°ГҐГ±Г±ГЁГўГ­Г Гї ГЇГ®ГЄГіГЇГЄГ  (Г±Г¬Г ГІГ·ГЁГІГ±Гї Г± ГЇГ°Г®Г¤Г ГўГ¶Г®Г¬ 3)
     if (broker3->addOrder(exchange, 100, 154.0, OrderType::BUY)) {
-        std::cout << "   Брокер " << broker3->getId() << ": BUY 100 @ $154.00" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker3->getId() << ": BUY 100 @ $154.00" << std::endl;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     auto deals1 = exchange->getRecentDeals(10);
     if (!deals1.empty()) {
-        std::cout << "\n   Сделки выполнены: " << deals1.size() << " шт." << std::endl;
+        std::cout << "\n   Г‘Г¤ГҐГ«ГЄГЁ ГўГ»ГЇГ®Г«Г­ГҐГ­Г»: " << deals1.size() << " ГёГІ." << std::endl;
         for (const auto& deal : deals1) {
-            std::cout << "   - Продавец " << deal.SellId << " -> Покупатель " << deal.BuyId
-                << ": " << deal.Amount << " акций @ $" << deal.Price
-                << " (Сумма: $" << deal.Price * deal.Amount << ")" << std::endl;
+            std::cout << "   - ГЏГ°Г®Г¤Г ГўГҐГ¶ " << deal.SellId << " -> ГЏГ®ГЄГіГЇГ ГІГҐГ«Гј " << deal.BuyId
+                << ": " << deal.Amount << " Г ГЄГ¶ГЁГ© @ $" << deal.Price
+                << " (Г‘ГіГ¬Г¬Г : $" << deal.Price * deal.Amount << ")" << std::endl;
         }
     }
 
-    std::cout << "\n   Текущая цена: $" << exchange->getCurrentPrice() << std::endl;
+    std::cout << "\n   Г’ГҐГЄГіГ№Г Гї Г¶ГҐГ­Г : $" << exchange->getCurrentPrice() << std::endl;
 
-    // РАУНД 3: Большая сделка
-    std::cout << "\n3. Большая сделка:" << std::endl;
+    // ГђГЂГ“ГЌГ„ 3: ГЃГ®Г«ГјГёГ Гї Г±Г¤ГҐГ«ГЄГ 
+    std::cout << "\n3. ГЃГ®Г«ГјГёГ Гї Г±Г¤ГҐГ«ГЄГ :" << std::endl;
 
-    // Продавец 4: продает много акций
+    // ГЏГ°Г®Г¤Г ГўГҐГ¶ 4: ГЇГ°Г®Г¤Г ГҐГІ Г¬Г­Г®ГЈГ® Г ГЄГ¶ГЁГ©
     if (broker4->addOrder(exchange, 500, 152.5, OrderType::SELL)) {
-        std::cout << "   Брокер " << broker4->getId() << ": SELL 500 @ $152.50" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker4->getId() << ": SELL 500 @ $152.50" << std::endl;
     }
 
-    // Покупатель 1: покупает много акций
+    // ГЏГ®ГЄГіГЇГ ГІГҐГ«Гј 1: ГЇГ®ГЄГіГЇГ ГҐГІ Г¬Г­Г®ГЈГ® Г ГЄГ¶ГЁГ©
     if (broker1->addOrder(exchange, 300, 153.0, OrderType::BUY)) {
-        std::cout << "   Брокер " << broker1->getId() << ": BUY 300 @ $153.00" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker1->getId() << ": BUY 300 @ $153.00" << std::endl;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
 
-    // РАУНД 4: Несколько мелких сделок
-    std::cout << "\n4. Несколько мелких сделок:" << std::endl;
+    // ГђГЂГ“ГЌГ„ 4: ГЌГҐГ±ГЄГ®Г«ГјГЄГ® Г¬ГҐГ«ГЄГЁГµ Г±Г¤ГҐГ«Г®ГЄ
+    std::cout << "\n4. ГЌГҐГ±ГЄГ®Г«ГјГЄГ® Г¬ГҐГ«ГЄГЁГµ Г±Г¤ГҐГ«Г®ГЄ:" << std::endl;
 
-    // Выставляем несколько ордеров с задержкой
+    // Г‚Г»Г±ГІГ ГўГ«ГїГҐГ¬ Г­ГҐГ±ГЄГ®Г«ГјГЄГ® Г®Г°Г¤ГҐГ°Г®Гў Г± Г§Г Г¤ГҐГ°Г¦ГЄГ®Г©
     std::vector<std::thread> orderThreads;
 
     orderThreads.emplace_back([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         broker2->addOrder(exchange, 25, 152.8, OrderType::SELL);
-        std::cout << "   Брокер " << broker2->getId() << ": SELL 25 @ $152.80" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker2->getId() << ": SELL 25 @ $152.80" << std::endl;
         });
 
     orderThreads.emplace_back([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         broker3->addOrder(exchange, 10, 153.2, OrderType::BUY);
-        std::cout << "   Брокер " << broker3->getId() << ": BUY 10 @ $153.20" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker3->getId() << ": BUY 10 @ $153.20" << std::endl;
         });
 
     orderThreads.emplace_back([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         broker4->addOrder(exchange, 15, 152.9, OrderType::SELL);
-        std::cout << "   Брокер " << broker4->getId() << ": SELL 15 @ $152.90" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker4->getId() << ": SELL 15 @ $152.90" << std::endl;
         });
 
     orderThreads.emplace_back([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         broker1->addOrder(exchange, 20, 153.1, OrderType::BUY);
-        std::cout << "   Брокер " << broker1->getId() << ": BUY 20 @ $153.10" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker1->getId() << ": BUY 20 @ $153.10" << std::endl;
         });
 
-    // Ждем завершения всех ордерных потоков
+    // Г†Г¤ГҐГ¬ Г§Г ГўГҐГ°ГёГҐГ­ГЁГї ГўГ±ГҐГµ Г®Г°Г¤ГҐГ°Г­Г»Гµ ГЇГ®ГІГ®ГЄГ®Гў
     for (auto& t : orderThreads) {
         t.join();
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    // РАУНД 5: Маркет-ордера (по текущей цене)
-    std::cout << "\n5. Агрессивные ордера (по рынку):" << std::endl;
+    // ГђГЂГ“ГЌГ„ 5: ГЊГ Г°ГЄГҐГІ-Г®Г°Г¤ГҐГ°Г  (ГЇГ® ГІГҐГЄГіГ№ГҐГ© Г¶ГҐГ­ГҐ)
+    std::cout << "\n5. ГЂГЈГ°ГҐГ±Г±ГЁГўГ­Г»ГҐ Г®Г°Г¤ГҐГ°Г  (ГЇГ® Г°Г»Г­ГЄГі):" << std::endl;
 
-    // Получаем текущий спред
+    // ГЏГ®Г«ГіГ·Г ГҐГ¬ ГІГҐГЄГіГ№ГЁГ© Г±ГЇГ°ГҐГ¤
     auto currentSpread = exchange->getSpread();
-    double marketBuyPrice = currentSpread.second + 0.1;  // Чуть выше ask
-    double marketSellPrice = currentSpread.first - 0.1;  // Чуть ниже bid
+    double marketBuyPrice = currentSpread.second + 0.1;  // Г—ГіГІГј ГўГ»ГёГҐ ask
+    double marketSellPrice = currentSpread.first - 0.1;  // Г—ГіГІГј Г­ГЁГ¦ГҐ bid
 
-    std::cout << "   Текущий спред: Bid=$" << currentSpread.first
+    std::cout << "   Г’ГҐГЄГіГ№ГЁГ© Г±ГЇГ°ГҐГ¤: Bid=$" << currentSpread.first
         << ", Ask=$" << currentSpread.second << std::endl;
 
-    // Агрессивная покупка
+    // ГЂГЈГ°ГҐГ±Г±ГЁГўГ­Г Гї ГЇГ®ГЄГіГЇГЄГ 
     if (broker3->addOrder(exchange, 75, marketBuyPrice, OrderType::BUY)) {
-        std::cout << "   Брокер " << broker3->getId() << ": BUY 75 @ $" << marketBuyPrice
-            << " (агрессивно)" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker3->getId() << ": BUY 75 @ $" << marketBuyPrice
+            << " (Г ГЈГ°ГҐГ±Г±ГЁГўГ­Г®)" << std::endl;
     }
 
-    // Агрессивная продажа
+    // ГЂГЈГ°ГҐГ±Г±ГЁГўГ­Г Гї ГЇГ°Г®Г¤Г Г¦Г 
     if (broker4->addOrder(exchange, 60, marketSellPrice, OrderType::SELL)) {
-        std::cout << "   Брокер " << broker4->getId() << ": SELL 60 @ $" << marketSellPrice
-            << " (агрессивно)" << std::endl;
+        std::cout << "   ГЃГ°Г®ГЄГҐГ° " << broker4->getId() << ": SELL 60 @ $" << marketSellPrice
+            << " (Г ГЈГ°ГҐГ±Г±ГЁГўГ­Г®)" << std::endl;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // Показать итоги
-    std::cout << "\n=== Итоги торгов ===" << std::endl;
+    // ГЏГ®ГЄГ Г§Г ГІГј ГЁГІГ®ГЈГЁ
+    std::cout << "\n=== Г€ГІГ®ГЈГЁ ГІГ®Г°ГЈГ®Гў ===" << std::endl;
 
     auto allDeals = exchange->getRecentDeals(100);
-    std::cout << "\nВсего сделок: " << allDeals.size() << std::endl;
+    std::cout << "\nГ‚Г±ГҐГЈГ® Г±Г¤ГҐГ«Г®ГЄ: " << allDeals.size() << std::endl;
 
     double totalVolume = 0.0;
     for (const auto& deal : allDeals) {
         totalVolume += deal.Price * deal.Amount;
     }
-    std::cout << "Общий объем торгов: $" << totalVolume << std::endl;
+    std::cout << "ГЋГЎГ№ГЁГ© Г®ГЎГєГҐГ¬ ГІГ®Г°ГЈГ®Гў: $" << totalVolume << std::endl;
 
-    std::cout << "Комиссия биржи: $" << exchange->getTotalFees() << std::endl;
-    std::cout << "Текущая цена: $" << exchange->getCurrentPrice() << std::endl;
+    std::cout << "ГЉГ®Г¬ГЁГ±Г±ГЁГї ГЎГЁГ°Г¦ГЁ: $" << exchange->getTotalFees() << std::endl;
+    std::cout << "Г’ГҐГЄГіГ№Г Гї Г¶ГҐГ­Г : $" << exchange->getCurrentPrice() << std::endl;
 
     auto finalSpread = exchange->getSpread();
-    std::cout << "Финальный спред: Bid=$" << finalSpread.first
+    std::cout << "Г”ГЁГ­Г Г«ГјГ­Г»Г© Г±ГЇГ°ГҐГ¤: Bid=$" << finalSpread.first
         << ", Ask=$" << finalSpread.second << std::endl;
 
-    std::cout << "\nСостояние брокеров:" << std::endl;
+    std::cout << "\nГ‘Г®Г±ГІГ®ГїГ­ГЁГҐ ГЎГ°Г®ГЄГҐГ°Г®Гў:" << std::endl;
     auto s1 = broker1->getStatus();
     auto s2 = broker2->getStatus();
     auto s3 = broker3->getStatus();
     auto s4 = broker4->getStatus();
 
-    std::cout << "Брокер " << broker1->getId() << ": Деньги=$" << s1.first
-        << ", Акции=" << s1.second << std::endl;
-    std::cout << "Брокер " << broker2->getId() << ": Деньги=$" << s2.first
-        << ", Акции=" << s2.second << std::endl;
-    std::cout << "Брокер " << broker3->getId() << ": Деньги=$" << s3.first
-        << ", Акции=" << s3.second << std::endl;
-    std::cout << "Брокер " << broker4->getId() << ": Деньги=$" << s4.first
-        << ", Акции=" << s4.second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° " << broker1->getId() << ": Г„ГҐГ­ГјГЈГЁ=$" << s1.first
+        << ", ГЂГЄГ¶ГЁГЁ=" << s1.second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° " << broker2->getId() << ": Г„ГҐГ­ГјГЈГЁ=$" << s2.first
+        << ", ГЂГЄГ¶ГЁГЁ=" << s2.second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° " << broker3->getId() << ": Г„ГҐГ­ГјГЈГЁ=$" << s3.first
+        << ", ГЂГЄГ¶ГЁГЁ=" << s3.second << std::endl;
+    std::cout << "ГЃГ°Г®ГЄГҐГ° " << broker4->getId() << ": Г„ГҐГ­ГјГЈГЁ=$" << s4.first
+        << ", ГЂГЄГ¶ГЁГЁ=" << s4.second << std::endl;
 
-    // Подождем сбор комиссии (раз в минуту)
-    std::cout << "\nОжидание сбора комиссий (60 секунд)..." << std::endl;
-    std::cout << "(Нажмите Ctrl+C для досрочной остановки)" << std::endl;
+    // ГЏГ®Г¤Г®Г¦Г¤ГҐГ¬ Г±ГЎГ®Г° ГЄГ®Г¬ГЁГ±Г±ГЁГЁ (Г°Г Г§ Гў Г¬ГЁГ­ГіГІГі)
+    std::cout << "\nГЋГ¦ГЁГ¤Г Г­ГЁГҐ Г±ГЎГ®Г°Г  ГЄГ®Г¬ГЁГ±Г±ГЁГ© (60 Г±ГҐГЄГіГ­Г¤)..." << std::endl;
+    std::cout << "(ГЌГ Г¦Г¬ГЁГІГҐ Ctrl+C Г¤Г«Гї Г¤Г®Г±Г°Г®Г·Г­Г®Г© Г®Г±ГІГ Г­Г®ГўГЄГЁ)" << std::endl;
 
     std::this_thread::sleep_for(std::chrono::seconds(10));
 
-    std::cout << "\nКомиссия после сбора: $" << exchange->getTotalFees() << std::endl;
+    std::cout << "\nГЉГ®Г¬ГЁГ±Г±ГЁГї ГЇГ®Г±Г«ГҐ Г±ГЎГ®Г°Г : $" << exchange->getTotalFees() << std::endl;
 
-    // Останавливаем биржу
-    std::cout << "\nОстановка биржи..." << std::endl;
+    // ГЋГ±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ ГЎГЁГ°Г¦Гі
+    std::cout << "\nГЋГ±ГІГ Г­Г®ГўГЄГ  ГЎГЁГ°Г¦ГЁ..." << std::endl;
     exchange->stop();
 
-    std::cout << "\n=== Торги завершены ===" << std::endl;
+    std::cout << "\n=== Г’Г®Г°ГЈГЁ Г§Г ГўГҐГ°ГёГҐГ­Г» ===" << std::endl;
 
     return 0;
+
 }
