@@ -351,7 +351,7 @@ public:
         matchingThread = std::thread([this]() { processMatching(); });
         feeThread = std::thread([this]() { feeCollectorLoop(); });
 
-        std::cout << "Exchange started for product: " << productName << std::endl;
+        
     }
 
     void stop() {
@@ -363,7 +363,7 @@ public:
         if (matchingThread.joinable()) matchingThread.join();
         if (feeThread.joinable()) feeThread.join();
 
-        std::cout << "Exchange stopped for product: " << productName << std::endl;
+        
     }
 
     double getCurrentPrice() const {
@@ -673,3 +673,4 @@ int main() {
     return 0;
 
 }
+
