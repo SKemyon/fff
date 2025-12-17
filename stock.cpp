@@ -1,5 +1,4 @@
 
-
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -18,8 +17,7 @@
 #include <deque>
 #include <limits>
 #include <shared_mutex>
-
-
+#include <functional>
 
 const double BROKER_FEE_PER_MINUTE = 1.0;
 
@@ -71,13 +69,25 @@ public:
     void popFrontIfEmpty() {
         while (!orders.empty() && orders.front().amount <= 0) {
             orders.pop_front();
-            
+
         }
     }
 };
 
 
 class Exchange;
+class Broker;
+
+
+
+
+
+class BrokerStrategy {
+public:
+    virtual ~BrokerStrategy() = default;
+    virtual void execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) = 0;
+};
+
 
 class Broker : public std::enable_shared_from_this<Broker> {
 private:
@@ -87,11 +97,25 @@ private:
     mutable std::mutex mtx;
     static std::atomic<size_t> nextId;
 
+
+    std::thread tradingThread;
+    std::atomic<bool> running_{ false };
+    std::unique_ptr<BrokerStrategy> strategy_;
+
+
+    double lastTradePrice_ = 0.0;
+
+
 public:
-    Broker(double initialCash, int initialProd) : id(nextId++), cash(initialCash), prodAmount(initialProd) {}
+    Broker(double initialCash, int initialProd, std::unique_ptr<BrokerStrategy> strategy)
+        : id(nextId++), cash(initialCash), prodAmount(initialProd), strategy_(std::move(strategy)) {}
 
     Broker(const Broker&) = delete;
     Broker& operator=(const Broker&) = delete;
+
+    ~Broker() {
+        stopTrading();
+    }
 
     double giveMoney(double value) {
         std::lock_guard<std::mutex> lock(mtx);
@@ -130,7 +154,9 @@ public:
         return { cash, prodAmount };
     }
 
-    bool addOrder(std::shared_ptr<Exchange> ex, int prAmount, double price, OrderType type);
+    bool placeOrder(const std::shared_ptr<Exchange>& ex, int prAmount, double price, OrderType type);
+
+    
 
     void processDeal(const Deal& deal, bool isBuyer) {
         std::lock_guard<std::mutex> lock(mtx);
@@ -138,10 +164,51 @@ public:
 
         if (isBuyer) {
             prodAmount += deal.Amount;
+
+            if (deal.Amount > 0) lastTradePrice_ = totalValue / deal.Amount;
         }
         else {
             cash += totalValue;
             prodAmount -= deal.Amount;
+
+            if (deal.Amount > 0) lastTradePrice_ = totalValue / deal.Amount;
+        }
+    }
+
+
+    double getLastTradePrice() const {
+        std::lock_guard<std::mutex> lock(mtx);
+        return lastTradePrice_;
+    }
+
+    void updateLastTradePrice(double newPrice) {
+        std::lock_guard<std::mutex> lock(mtx);
+        lastTradePrice_ = newPrice;
+    }
+
+
+
+    void startTrading(const std::shared_ptr<Exchange>& exchange) {
+        bool expected = false;
+        if (!running_.compare_exchange_strong(expected, true)) return;
+
+        tradingThread = std::thread([this, exchange]() {
+            while (running_) {
+                if (strategy_) {
+                    strategy_->execute(*this, exchange); 
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            });
+    }
+
+    void stopTrading() {
+        bool expected = true;
+        if (!running_.compare_exchange_strong(expected, false)) return;
+
+        if (tradingThread.joinable()) {
+            tradingThread.join();
         }
     }
 };
@@ -338,7 +405,7 @@ public:
             double feePerBroker = BROKER_FEE_PER_MINUTE;
 
             for (auto& [id, broker] : brokers) {
-                broker->giveMoney(feePerBroker);
+                broker->giveMoney(-feePerBroker); 
                 totalFees += feePerBroker;
             }
         }
@@ -351,7 +418,7 @@ public:
         matchingThread = std::thread([this]() { processMatching(); });
         feeThread = std::thread([this]() { feeCollectorLoop(); });
 
-        
+        std::cout << "Exchange started. product: " << productName << std::endl;
     }
 
     void stop() {
@@ -363,7 +430,7 @@ public:
         if (matchingThread.joinable()) matchingThread.join();
         if (feeThread.joinable()) feeThread.join();
 
-        
+        std::cout << "Exchange stopped. product: " << productName << std::endl;
     }
 
     double getCurrentPrice() const {
@@ -392,7 +459,7 @@ public:
 
 
 
-bool Broker::addOrder(std::shared_ptr<Exchange> ex, int prAmount, double price, OrderType type) {
+bool Broker::placeOrder(const std::shared_ptr<Exchange>& ex, int prAmount, double price, OrderType type) {
     if (prAmount <= 0) return false;
 
     std::lock_guard<std::mutex> lock(mtx);
@@ -401,276 +468,242 @@ bool Broker::addOrder(std::shared_ptr<Exchange> ex, int prAmount, double price, 
         if (prodAmount < prAmount) return false;
         prodAmount -= prAmount;
     }
-    else { // BUY
+    else {
         double totalCost = price * prAmount;
         if (cash < totalCost) return false;
         cash -= totalCost;
     }
 
-    ex->addOrder(prAmount, price, type, id);
-    return true;
+    return ex->addOrder(prAmount, price, type, id);
 }
 
 
-int mmmain() {
-    auto exchange = std::make_shared<Exchange>("AAAAAA");
 
-    auto broker1 = std::make_shared<Broker>(10000.0, 100);
-    auto broker2 = std::make_shared<Broker>(15000.0, 50);
-    auto broker3 = std::make_shared<Broker>(20000.0, 200);
 
-    exchange->registerBroker(broker1);
-    exchange->registerBroker(broker2);
-    exchange->registerBroker(broker3);
 
+
+// --- ОПРЕДЕЛЕНИЯ КЛАССОВ СТРАТЕГИЙ (объявления методов execute) ---
+class BigShotStrategy : public BrokerStrategy {
+private:
+    double profitThreshold_;
+    std::mt19937 gen;
+    std::uniform_real_distribution<> dis_price;
+    std::uniform_int_distribution<> dis_amount;
+    std::chrono::steady_clock::time_point lastTradeTime;
+    const std::chrono::seconds maxWaitForProfit = std::chrono::seconds(15);
+
+public:
+    BigShotStrategy(double threshold) : profitThreshold_(threshold), gen(std::random_device{}()),
+        dis_price(1.0, 10.0), dis_amount(1, 5) {
+        lastTradeTime = std::chrono::steady_clock::now();
+    }
+
+    void execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) override;
+};
+
+class GamblerStrategy : public BrokerStrategy {
+private:
+    std::mt19937 gen;
+    std::uniform_real_distribution<> dis_price;
+    std::uniform_int_distribution<> dis_amount;
+    std::uniform_int_distribution<> dis_action; // 0-buy, 1-sell
+
+public:
+    GamblerStrategy() : gen(std::random_device{}()), dis_price(1.0, 10.0), dis_amount(1, 3), dis_action(0, 1) {}
+
+    void execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) override;
+};
+
+class AnalystStrategy : public BrokerStrategy {
+private:
+    std::vector<Deal> historicalDeals;
+    std::mutex histMtx;
+    std::mt19937 gen;
+    std::uniform_int_distribution<> dis_amount;
+
+public:
+    AnalystStrategy() : gen(std::random_device{}()), dis_amount(1, 2) {}
+
+    void execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) override;
+};
+
+// --- ФУНКЦИЯ ДЛЯ СИМУЛЯЦИИ РАБОТЫ БРОКЕРОВ ---
+void simulateBrokers() {
+    auto exchange = std::make_shared<Exchange>("SampleProduct");
     exchange->start();
 
- 
-    broker1->addOrder(exchange, 10, 150.0, OrderType::SELL);
-    broker2->addOrder(exchange, 5, 149.0, OrderType::SELL);
-    broker3->addOrder(exchange, 15, 148.0, OrderType::BUY);
+    std::vector<std::shared_ptr<Broker>> brokerList;
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    // Создание и запуск разных типов брокеров
+    for (int i = 0; i < 2; ++i) {
+        auto bigShot = std::make_shared<Broker>(1000.0, 10, std::make_unique<BigShotStrategy>(0.1)); // 10% порог
+        exchange->registerBroker(bigShot);
+        brokerList.push_back(bigShot);
+        bigShot->startTrading(exchange);
+        std::cout << "Started BigShot Broker " << bigShot->getId() << std::endl;
+    }
 
-    auto spread = exchange->getSpread();
-    std::cout << "Bid: " << spread.first << ", Ask: " << spread.second << std::endl;
-    std::cout << "Curr price: " << exchange->getCurrentPrice() << std::endl;
+    for (int i = 0; i < 2; ++i) {
+        auto gambler = std::make_shared<Broker>(500.0, 5, std::make_unique<GamblerStrategy>());
+        exchange->registerBroker(gambler);
+        brokerList.push_back(gambler);
+        gambler->startTrading(exchange);
+        std::cout << "Started Gambler Broker " << gambler->getId() << std::endl;
+    }
 
-    auto deals = exchange->getRecentDeals(5);
-    std::cout << "Recent deals: " << deals.size() << std::endl;
+    for (int i = 0; i < 2; ++i) {
+        auto analyst = std::make_shared<Broker>(800.0, 8, std::make_unique<AnalystStrategy>());
+        exchange->registerBroker(analyst);
+        brokerList.push_back(analyst);
+        analyst->startTrading(exchange);
+        std::cout << "Started Analyst Broker " << analyst->getId() << std::endl;
+    }
 
-    auto status1 = broker1->getStatus();
-    auto status2 = broker2->getStatus();
-    auto status3 = broker3->getStatus();
+    // Симуляция работы в течение 30 секунд
+    std::this_thread::sleep_for(std::chrono::seconds(30));
 
-    std::cout << "Broker1 - Cash: " << status1.first << ", Prod: " << status1.second << std::endl;
-    std::cout << "Broker2 - Cash: " << status2.first << ", Prod: " << status2.second << std::endl;
-    std::cout << "Broker3 - Cash: " << status3.first << ", Prod: " << status3.second << std::endl;
+    // Остановка всех брокеров
+    for (auto& broker : brokerList) {
+        broker->stopTrading();
+        std::cout << "Stopped Broker " << broker->getId() << std::endl;
+    }
 
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    // Остановка биржи
     exchange->stop();
 
+    // Вывод итогового состояния брокеров
+    std::cout << "\n--- Final Broker Status ---" << std::endl;
+    for (const auto& broker : brokerList) {
+        auto status = broker->getStatus();
+        std::cout << "Broker " << broker->getId() << ": Cash=" << status.first << ", Prod=" << status.second << std::endl;
+    }
+    std::cout << "Total Fees Collected: " << exchange->getTotalFees() << std::endl;
+}
+
+int main() {
+    simulateBrokers();
     return 0;
 }
 
+// --- РЕАЛИЗАЦИИ МЕТОДОВ СТРАТЕГИЙ (ПОСЛЕ ВСЕХ ОПРЕДЕЛЕНИЙ КЛАССОВ и main) ---
+void BigShotStrategy::execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) {
+    auto [cash, prod] = broker.getStatus();
+    double currentPrice = exchange->getCurrentPrice();
 
+    // Используем getSpread для получения ask
+    auto [bid, ask] = exchange->getSpread();
 
-
-// Ïðèìåð èñïîëüçîâàíèÿ
-int main() {
-
-    setlocale(LC_ALL, "Ru");
-    std::cout << "=== Çàïóñê áèðæåâîé ñèñòåìû ===" << std::endl;
-
-    // Ñîçäàåì áèðæó äëÿ àêöèé Apple
-    auto exchange = std::make_shared<Exchange>("AAPL");
-
-    // Ñîçäàåì áðîêåðîâ ñ ðàçíûì êàïèòàëîì
-    auto broker1 = std::make_shared<Broker>(100000.0, 1000);  // 100ê äåíåã, 1000 àêöèé
-    auto broker2 = std::make_shared<Broker>(150000.0, 500);   // 150ê äåíåã, 500 àêöèé
-    auto broker3 = std::make_shared<Broker>(200000.0, 1500);  // 200ê äåíåã, 1500 àêöèé
-    auto broker4 = std::make_shared<Broker>(50000.0, 2000);   // 50ê äåíåã, 2000 àêöèé
-
-    std::cout << "\nÁðîêåðû ñîçäàíû:" << std::endl;
-    std::cout << "Áðîêåð 1: ID=" << broker1->getId() << ", Äåíüãè=" << broker1->getStatus().first
-        << ", Àêöèè=" << broker1->getStatus().second << std::endl;
-    std::cout << "Áðîêåð 2: ID=" << broker2->getId() << ", Äåíüãè=" << broker2->getStatus().first
-        << ", Àêöèè=" << broker2->getStatus().second << std::endl;
-    std::cout << "Áðîêåð 3: ID=" << broker3->getId() << ", Äåíüãè=" << broker3->getStatus().first
-        << ", Àêöèè=" << broker3->getStatus().second << std::endl;
-    std::cout << "Áðîêåð 4: ID=" << broker4->getId() << ", Äåíüãè=" << broker4->getStatus().first
-        << ", Àêöèè=" << broker4->getStatus().second << std::endl;
-
-    // Ðåãèñòðèðóåì áðîêåðîâ íà áèðæå
-    exchange->registerBroker(broker1);
-    exchange->registerBroker(broker2);
-    exchange->registerBroker(broker3);
-    exchange->registerBroker(broker4);
-
-    std::cout << "\nÇàïóñê áèðæè..." << std::endl;
-    exchange->start();
-
-    // Äàåì áèðæå âðåìÿ íà èíèöèàëèçàöèþ
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    std::cout << "\n=== Íà÷àëî òîðãîâ ===" << std::endl;
-
-    // ÐÀÓÍÄ 1: Ïðîäàâöû âûñòàâëÿþò îðäåðà
-    std::cout << "\n1. Ïðîäàâöû âûñòàâëÿþò îðäåðà íà ïðîäàæó:" << std::endl;
-
-    // Ïðîäàâåö 1: ïðîäàåò äîðîãî
-    if (broker1->addOrder(exchange, 100, 155.0, OrderType::SELL)) {
-        std::cout << "   Áðîêåð " << broker1->getId() << ": SELL 100 @ $155.00" << std::endl;
-    }
-
-    // Ïðîäàâåö 2: ïðîäàåò ÷óòü äåøåâëå
-    if (broker2->addOrder(exchange, 50, 154.5, OrderType::SELL)) {
-        std::cout << "   Áðîêåð " << broker2->getId() << ": SELL 50 @ $154.50" << std::endl;
-    }
-
-    // Ïðîäàâåö 3: ïðîäàåò åùå äåøåâëå
-    if (broker3->addOrder(exchange, 150, 153.0, OrderType::SELL)) {
-        std::cout << "   Áðîêåð " << broker3->getId() << ": SELL 150 @ $153.00" << std::endl;
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-    auto spread1 = exchange->getSpread();
-    std::cout << "   Ñïðåä: Bid=" << spread1.first << ", Ask=" << spread1.second << std::endl;
-
-    // ÐÀÓÍÄ 2: Ïîêóïàòåëè âûõîäÿò íà ðûíîê
-    std::cout << "\n2. Ïîêóïàòåëè âûñòàâëÿþò îðäåðà íà ïîêóïêó:" << std::endl;
-
-    // Ïîêóïàòåëü 4: õî÷åò êóïèòü äåøåâî (íå ñìàò÷èòñÿ)
-    if (broker4->addOrder(exchange, 200, 152.0, OrderType::BUY)) {
-        std::cout << "   Áðîêåð " << broker4->getId() << ": BUY 200 @ $152.00 (íå ñìàò÷èòñÿ)" << std::endl;
-    }
-
-    // Ïîêóïàòåëü 3: àãðåññèâíàÿ ïîêóïêà (ñìàò÷èòñÿ ñ ïðîäàâöîì 3)
-    if (broker3->addOrder(exchange, 100, 154.0, OrderType::BUY)) {
-        std::cout << "   Áðîêåð " << broker3->getId() << ": BUY 100 @ $154.00" << std::endl;
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto deals1 = exchange->getRecentDeals(10);
-    if (!deals1.empty()) {
-        std::cout << "\n   Ñäåëêè âûïîëíåíû: " << deals1.size() << " øò." << std::endl;
-        for (const auto& deal : deals1) {
-            std::cout << "   - Ïðîäàâåö " << deal.SellId << " -> Ïîêóïàòåëü " << deal.BuyId
-                << ": " << deal.Amount << " àêöèé @ $" << deal.Price
-                << " (Ñóììà: $" << deal.Price * deal.Amount << ")" << std::endl;
+    // Проверка на убытки по уже купленному товару
+    if (currentPrice > 0 && broker.getLastTradePrice() > 0 &&
+        currentPrice > broker.getLastTradePrice() * (1.0 + profitThreshold_) && prod > 0) {
+        // Попытка продать с прибылью
+        if (exchange->addOrder(prod, currentPrice, OrderType::SELL, broker.getId())) {
+            broker.updateLastTradePrice(currentPrice);
+            lastTradeTime = std::chrono::steady_clock::now();
+            std::cout << "[BigShot " << broker.getId() << "] Sold at " << currentPrice << " for profit. Prod: " << prod << std::endl;
         }
     }
-
-    std::cout << "\n   Òåêóùàÿ öåíà: $" << exchange->getCurrentPrice() << std::endl;
-
-    // ÐÀÓÍÄ 3: Áîëüøàÿ ñäåëêà
-    std::cout << "\n3. Áîëüøàÿ ñäåëêà:" << std::endl;
-
-    // Ïðîäàâåö 4: ïðîäàåò ìíîãî àêöèé
-    if (broker4->addOrder(exchange, 500, 152.5, OrderType::SELL)) {
-        std::cout << "   Áðîêåð " << broker4->getId() << ": SELL 500 @ $152.50" << std::endl;
+    // Проверка на возможность покупки с потенциальной высокой прибылью
+    else if (currentPrice > 0 && cash >= currentPrice &&
+        ask > 0 && // Используем 'ask' вместо exchange->getBestAsk()
+        ask >= currentPrice * (1.0 + profitThreshold_)) { // Используем 'ask'
+        int amount = std::min(static_cast<int>(cash / currentPrice), dis_amount(gen));
+        if (amount > 0 && exchange->addOrder(amount, currentPrice, OrderType::BUY, broker.getId())) {
+            std::cout << "[BigShot " << broker.getId() << "] Placed BUY order at " << currentPrice << ", expecting high profit." << std::endl;
+        }
     }
-
-    // Ïîêóïàòåëü 1: ïîêóïàåò ìíîãî àêöèé
-    if (broker1->addOrder(exchange, 300, 153.0, OrderType::BUY)) {
-        std::cout << "   Áðîêåð " << broker1->getId() << ": BUY 300 @ $153.00" << std::endl;
+    // Проверка на минимизацию убытков
+    else if (currentPrice > 0 && broker.getLastTradePrice() > 0 &&
+        currentPrice < broker.getLastTradePrice() * (1.0 - profitThreshold_) && prod > 0) {
+        // Попытка продать, чтобы избежать больших потерь
+        if (exchange->addOrder(prod, currentPrice, OrderType::SELL, broker.getId())) {
+            broker.updateLastTradePrice(currentPrice);
+            lastTradeTime = std::chrono::steady_clock::now();
+            std::cout << "[BigShot " << broker.getId() << "] Sold at " << currentPrice << " to minimize loss. Prod: " << prod << std::endl;
+        }
     }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(400));
-
-    // ÐÀÓÍÄ 4: Íåñêîëüêî ìåëêèõ ñäåëîê
-    std::cout << "\n4. Íåñêîëüêî ìåëêèõ ñäåëîê:" << std::endl;
-
-    // Âûñòàâëÿåì íåñêîëüêî îðäåðîâ ñ çàäåðæêîé
-    std::vector<std::thread> orderThreads;
-
-    orderThreads.emplace_back([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        broker2->addOrder(exchange, 25, 152.8, OrderType::SELL);
-        std::cout << "   Áðîêåð " << broker2->getId() << ": SELL 25 @ $152.80" << std::endl;
-        });
-
-    orderThreads.emplace_back([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        broker3->addOrder(exchange, 10, 153.2, OrderType::BUY);
-        std::cout << "   Áðîêåð " << broker3->getId() << ": BUY 10 @ $153.20" << std::endl;
-        });
-
-    orderThreads.emplace_back([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        broker4->addOrder(exchange, 15, 152.9, OrderType::SELL);
-        std::cout << "   Áðîêåð " << broker4->getId() << ": SELL 15 @ $152.90" << std::endl;
-        });
-
-    orderThreads.emplace_back([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        broker1->addOrder(exchange, 20, 153.1, OrderType::BUY);
-        std::cout << "   Áðîêåð " << broker1->getId() << ": BUY 20 @ $153.10" << std::endl;
-        });
-
-    // Æäåì çàâåðøåíèÿ âñåõ îðäåðíûõ ïîòîêîâ
-    for (auto& t : orderThreads) {
-        t.join();
+    // Проверка времени без прибыли
+    else if (std::chrono::steady_clock::now() - lastTradeTime > maxWaitForProfit) {
+        // Минимизация убытков - продажа всего
+        if (prod > 0) {
+            if (exchange->addOrder(prod, currentPrice > 0 ? currentPrice : 1.0, OrderType::SELL, broker.getId())) {
+                broker.updateLastTradePrice(currentPrice > 0 ? currentPrice : 1.0);
+                lastTradeTime = std::chrono::steady_clock::now();
+                std::cout << "[BigShot " << broker.getId() << "] Minimizing loss by selling all." << std::endl;
+            }
+        }
     }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-    // ÐÀÓÍÄ 5: Ìàðêåò-îðäåðà (ïî òåêóùåé öåíå)
-    std::cout << "\n5. Àãðåññèâíûå îðäåðà (ïî ðûíêó):" << std::endl;
-
-    // Ïîëó÷àåì òåêóùèé ñïðåä
-    auto currentSpread = exchange->getSpread();
-    double marketBuyPrice = currentSpread.second + 0.1;  // ×óòü âûøå ask
-    double marketSellPrice = currentSpread.first - 0.1;  // ×óòü íèæå bid
-
-    std::cout << "   Òåêóùèé ñïðåä: Bid=$" << currentSpread.first
-        << ", Ask=$" << currentSpread.second << std::endl;
-
-    // Àãðåññèâíàÿ ïîêóïêà
-    if (broker3->addOrder(exchange, 75, marketBuyPrice, OrderType::BUY)) {
-        std::cout << "   Áðîêåð " << broker3->getId() << ": BUY 75 @ $" << marketBuyPrice
-            << " (àãðåññèâíî)" << std::endl;
+    // Иначе - просто ждать или немного торговать для анализа
+    else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // Или более сложная логика
     }
-
-    // Àãðåññèâíàÿ ïðîäàæà
-    if (broker4->addOrder(exchange, 60, marketSellPrice, OrderType::SELL)) {
-        std::cout << "   Áðîêåð " << broker4->getId() << ": SELL 60 @ $" << marketSellPrice
-            << " (àãðåññèâíî)" << std::endl;
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    // Ïîêàçàòü èòîãè
-    std::cout << "\n=== Èòîãè òîðãîâ ===" << std::endl;
-
-    auto allDeals = exchange->getRecentDeals(100);
-    std::cout << "\nÂñåãî ñäåëîê: " << allDeals.size() << std::endl;
-
-    double totalVolume = 0.0;
-    for (const auto& deal : allDeals) {
-        totalVolume += deal.Price * deal.Amount;
-    }
-    std::cout << "Îáùèé îáúåì òîðãîâ: $" << totalVolume << std::endl;
-
-    std::cout << "Êîìèññèÿ áèðæè: $" << exchange->getTotalFees() << std::endl;
-    std::cout << "Òåêóùàÿ öåíà: $" << exchange->getCurrentPrice() << std::endl;
-
-    auto finalSpread = exchange->getSpread();
-    std::cout << "Ôèíàëüíûé ñïðåä: Bid=$" << finalSpread.first
-        << ", Ask=$" << finalSpread.second << std::endl;
-
-    std::cout << "\nÑîñòîÿíèå áðîêåðîâ:" << std::endl;
-    auto s1 = broker1->getStatus();
-    auto s2 = broker2->getStatus();
-    auto s3 = broker3->getStatus();
-    auto s4 = broker4->getStatus();
-
-    std::cout << "Áðîêåð " << broker1->getId() << ": Äåíüãè=$" << s1.first
-        << ", Àêöèè=" << s1.second << std::endl;
-    std::cout << "Áðîêåð " << broker2->getId() << ": Äåíüãè=$" << s2.first
-        << ", Àêöèè=" << s2.second << std::endl;
-    std::cout << "Áðîêåð " << broker3->getId() << ": Äåíüãè=$" << s3.first
-        << ", Àêöèè=" << s3.second << std::endl;
-    std::cout << "Áðîêåð " << broker4->getId() << ": Äåíüãè=$" << s4.first
-        << ", Àêöèè=" << s4.second << std::endl;
-
-    // Ïîäîæäåì ñáîð êîìèññèè (ðàç â ìèíóòó)
-    std::cout << "\nÎæèäàíèå ñáîðà êîìèññèé (60 ñåêóíä)..." << std::endl;
-    std::cout << "(Íàæìèòå Ctrl+C äëÿ äîñðî÷íîé îñòàíîâêè)" << std::endl;
-
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-
-    std::cout << "\nÊîìèññèÿ ïîñëå ñáîðà: $" << exchange->getTotalFees() << std::endl;
-
-    // Îñòàíàâëèâàåì áèðæó
-    std::cout << "\nÎñòàíîâêà áèðæè..." << std::endl;
-    exchange->stop();
-
-    std::cout << "\n=== Òîðãè çàâåðøåíû ===" << std::endl;
-
-    return 0;
-
 }
 
+void GamblerStrategy::execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) {
+    auto [cash, prod] = broker.getStatus();
+    double currentPrice = exchange->getCurrentPrice();
+
+    int action = dis_action(gen);
+    double price = dis_price(gen);
+    int amount = dis_amount(gen);
+
+    if (action == 0) { // BUY
+        amount = std::min(amount, static_cast<int>(cash / price));
+        if (amount > 0 && exchange->addOrder(amount, price, OrderType::BUY, broker.getId())) {
+            std::cout << "[Gambler " << broker.getId() << "] Placed random BUY order." << std::endl;
+        }
+    }
+    else { // SELL
+        amount = std::min(amount, prod);
+        if (amount > 0 && exchange->addOrder(amount, price, OrderType::SELL, broker.getId())) {
+            std::cout << "[Gambler " << broker.getId() << "] Placed random SELL order." << std::endl;
+        }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20)); // Часто
+}
+
+void AnalystStrategy::execute(Broker& broker, const std::shared_ptr<Exchange>& exchange) {
+    auto [cash, prod] = broker.getStatus();
+    double currentPrice = exchange->getCurrentPrice();
+
+    // Получаем последние сделки для анализа
+    auto recentDeals = exchange->getRecentDeals(50); // Берем последние 50
+    {
+        std::lock_guard<std::mutex> lock(histMtx);
+        historicalDeals = recentDeals;
+    }
+
+    // Простой анализ: средняя цена последних сделок
+    double avgPrice = 0.0;
+    if (!historicalDeals.empty()) {
+        double sum = 0.0;
+        for (const auto& d : historicalDeals) {
+            sum += d.Price;
+        }
+        avgPrice = sum / historicalDeals.size();
+    }
+
+    // Решение на основе анализа
+    if (avgPrice > 0 && currentPrice < avgPrice * 0.95 && cash >= currentPrice) { // Цена ниже средней - покупаем
+        int amount = std::min(dis_amount(gen), static_cast<int>(cash / currentPrice));
+        if (amount > 0 && exchange->addOrder(amount, currentPrice, OrderType::BUY, broker.getId())) {
+            std::cout << "[Analyst " << broker.getId() << "] BUY signal based on analysis. Avg: " << avgPrice << ", Current: " << currentPrice << std::endl;
+        }
+    }
+    else if (avgPrice > 0 && currentPrice > avgPrice * 1.05 && prod > 0) { // Цена выше средней - продаем
+        int amount = std::min(dis_amount(gen), prod);
+        if (amount > 0 && exchange->addOrder(amount, currentPrice, OrderType::SELL, broker.getId())) {
+            std::cout << "[Analyst " << broker.getId() << "] SELL signal based on analysis. Avg: " << avgPrice << ", Current: " << currentPrice << std::endl;
+        }
+    }
+    else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Ждем, анализируем дальше
+    }
+}
+
+
+
+
+
+
+// --- КОНЕЦ РЕАЛИЗАЦИЙ ---
