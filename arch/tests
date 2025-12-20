@@ -1,0 +1,92 @@
+#include "logger.cpp"
+#include <gtest/gtest.h>
+#include <fstream>
+#include <string>
+
+
+std::string read_file(const std::string& filename) {
+    std::ifstream f(filename);
+    std::string content((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    f.close();
+    return content;
+}
+
+
+void clear_file(const std::string& filename) {
+    std::ofstream f(filename, std::ios::trunc);
+    f.close();
+}
+
+TEST(LoggerTest, BasicLogging) {
+    logstream::set_log_file("test.log");
+    clear_file("test.log");
+
+    logstream info("INFO");
+    info << "Application started";
+
+    std::string content = read_file("test.log");
+    EXPECT_EQ(content, "[INFO] Application started");
+}
+
+TEST(LoggerTest, PrefixPerLine) {
+    logstream::set_log_file("test.log");
+    clear_file("test.log");
+
+    logstream info("INFO");
+    info << "First message" << std::endl;
+    info << "Second message" << std::endl;
+
+    std::string expected = "[INFO] First message\n[INFO] Second message\n";
+    std::string content = read_file("test.log");
+    EXPECT_EQ(content, expected);
+}
+
+TEST(LoggerTest, ChangeLogFile) {
+    logstream::set_log_file("first.log");
+    clear_file("first.log");
+    clear_file("second.log");
+
+    logstream info("INFO");
+    info << "In first file" << std::endl;
+
+    logstream::set_log_file("second.log");
+    info << "In second file" << std::endl;
+
+    std::string first_content = read_file("first.log");
+    std::string second_content = read_file("second.log");
+
+    EXPECT_EQ(first_content, "[INFO] In first file\n");
+    EXPECT_EQ(second_content, "[INFO] In second file\n");
+}
+
+TEST(LoggerTest, MultiplePrefixes) {
+    logstream::set_log_file("test.log");
+    clear_file("test.log");
+
+    logstream info("INFO");
+    logstream error("ERROR");
+
+    info << "All good" << std::endl;
+    error << "Something broke" << std::endl;
+
+    std::string expected = "[INFO] All good\n[ERROR] Something broke\n";
+    std::string content = read_file("test.log");
+    EXPECT_EQ(content, expected);
+}
+
+TEST(LoggerTest, NoPrefixWhenEmpty) {
+    logstream::set_log_file("test.log");
+    clear_file("test.log");
+
+    logstream empty_log("");
+    empty_log << "No prefix here" << std::endl;
+
+    std::string expected = "No prefix here\n";
+    std::string content = read_file("test.log");
+    EXPECT_EQ(content, expected);
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
