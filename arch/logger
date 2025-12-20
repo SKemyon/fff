@@ -1,0 +1,91 @@
+#include <iostream>
+#include <fstream>
+#include <mutex>
+#include <string>
+
+class logstream {
+private:
+    static logstream* instance;
+    static std::mutex mutex_;
+
+    std::ofstream file_stream_;
+    std::string current_file_name_;
+    const std::string prefix_;
+    bool if_pref;
+
+ 
+    logstream()
+        : current_file_name_(""), prefix_(""), if_pref(false) {}
+
+public:
+    ~logstream() {
+        if (file_stream_.is_open()) {
+            file_stream_.flush();
+        }
+    }
+
+    logstream(const logstream&) = delete;
+    logstream& operator=(const logstream&) = delete;
+
+ 
+    static logstream* get_instance() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (instance == nullptr) {
+            instance = new logstream();
+        }
+        return instance;
+    }
+
+    static void set_log_file(const std::string& name) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        logstream* inst = get_instance();
+
+        if (inst->file_stream_.is_open()) {
+            inst->file_stream_.flush();
+            inst->file_stream_.close();
+        }
+
+        inst->file_stream_.open(name, std::ios::app);
+        inst->current_file_name_ = name;
+    }
+
+
+    logstream(const std::string& prefix) : prefix_(prefix), if_pref(false) {}
+
+    
+    template<typename T>
+    logstream& operator<<(const T& value) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        logstream* inst = get_instance();
+
+        if (!inst->prefix_.empty() && !inst->if_pref) {
+            inst->file_stream_ << "[" << inst->prefix_ << "] ";
+            inst->if_pref = true;
+        }
+
+        inst->file_stream_ << value;
+        return *this;
+    }
+
+ 
+    logstream& operator<<(std::ostream& (*manipul)(std::ostream&)) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        logstream* inst = get_instance();
+
+        if (!inst->prefix_.empty() && !inst->if_pref) {
+            inst->file_stream_ << "[" << inst->prefix_ << "] ";
+            inst->if_pref = true;
+        }
+
+        inst->file_stream_ << manipul;  
+        if (manipul == static_cast<std::ostream & (*)(std::ostream&)>(std::endl)) {
+            inst->if_pref = false;
+        }
+        return *this;
+    }
+};
+
+
+logstream* logstream::instance = nullptr;
+std::mutex logstream::mutex_;
+
