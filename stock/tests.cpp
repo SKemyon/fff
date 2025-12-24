@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "Exchange.h" // Убедитесь, что ваш Exchange.h подключается корректно
+#include "Exchange.h" 
 #include <thread>
 #include <chrono>
 
@@ -67,7 +67,7 @@ TEST(BrokerTest, GiveAndTakeMoney) {
     status = broker.getStatus();
     EXPECT_DOUBLE_EQ(status.first, 950.0);
 
-    EXPECT_DOUBLE_EQ(broker.giveMoney(1000.0), -1.0); // Недостаточно средств
+    EXPECT_DOUBLE_EQ(broker.giveMoney(1000.0), -1.0); 
 }
 
 TEST(BrokerTest, GiveAndTakeProd) {
@@ -82,7 +82,7 @@ TEST(BrokerTest, GiveAndTakeProd) {
     status = broker.getStatus();
     EXPECT_EQ(status.second, 9);
 
-    EXPECT_EQ(broker.giveProd(20), -1); // Недостаточно товара
+    EXPECT_EQ(broker.giveProd(20), -1); 
 }
 
 
@@ -225,4 +225,5 @@ TEST(ExchangeIntegrationTest, SimulateBrokersLogic) {
     }
 
     std::cout << "Total Fees Collected: " << exchange->getTotalFees() << std::endl;
+
 }
